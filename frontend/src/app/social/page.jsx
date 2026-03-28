@@ -1,72 +1,353 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import AuthModal from "@/components/AuthModal";
 import { uploadToCloudinary } from "@/utils/cloudinary";
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = "http://localhost:5000/api";
 const COMMENTS_PREVIEW = 2;
 
-// ─── Shared helpers ────────────────────────────────────────────────────────────
+// ─── Claymorphism Avatar with Status Indicator ─────────────────────────────
+const Avatar = ({
+  src,
+  name,
+  size = "md",
+  isOnline = false,
+  className = "",
+}) => {
+  const sz = {
+    sm: "w-8 h-8",
+    md: "w-10 h-10",
+    lg: "w-12 h-12",
+    xl: "w-14 h-14",
+    "2xl": "w-16 h-16",
+  }[size];
 
-const Avatar = ({ src, name, size = "md" }) => {
-  const sz = { sm: "w-8 h-8", md: "w-10 h-10", lg: "w-11 h-11", xl: "w-14 h-14" }[size];
   return (
-    <img
-      src={src || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'U')}&background=16a34a&color=fff&bold=true`}
-      alt={name || 'User'}
-      className={`${sz} rounded-full object-cover flex-shrink-0`}
-    />
+    <div className={`relative flex-shrink-0 ${className}`}>
+      <div
+        className={`${sz} rounded-[20px] overflow-hidden bg-clay-surface shadow-clay-sm transition-all duration-300 hover:shadow-clay-md hover:scale-105`}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={
+            src ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "U")}&background=10b981&color=fff&bold=true&size=128`
+          }
+          alt={name || "User"}
+          className="w-full h-full object-cover transition-transform duration-300"
+        />
+      </div>
+      {isOnline && (
+        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full shadow-clay-sm ring-2 ring-white dark:ring-slate-800"></span>
+      )}
+    </div>
   );
 };
 
+// ─── Enhanced Time Ago with Precise Formatting ─────────────────────────────
 const timeAgo = (date) => {
-  if (!date) return '';
-  const s = Math.floor((Date.now() - new Date(date)) / 1000);
-  if (s < 60) return 'Just now';
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  if (s < 604800) return `${Math.floor(s / 86400)}d ago`;
-  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (!date) return "";
+  const now = Date.now();
+  const diff = now - new Date(date).getTime();
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const weeks = Math.floor(days / 7);
+  const months = Math.floor(days / 30);
+  const years = Math.floor(days / 365);
+
+  if (seconds < 60) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  if (weeks < 4) return `${weeks}w ago`;
+  if (months < 12) return `${months}mo ago`;
+  return `${years}y ago`;
 };
 
-// ─── PostCard (Facebook-style inline comments) ────────────────────────────────
+// ─── Claymorphism Like Button with Press Effect ───────────────────────────
+const LikeButton = ({ liked, count, onClick }) => {
+  const [isPressed, setIsPressed] = useState(false);
 
-const PostCard = ({ post, user, token, posts, onPostsUpdate, onAuthRequired }) => {
-  const [showAll, setShowAll] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const [showInput, setShowInput] = useState(false);
+  const handleClick = (e) => {
+    setIsPressed(true);
+    onClick();
+    setTimeout(() => setIsPressed(false), 150);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`group relative flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[20px] text-[14px] font-semibold transition-all duration-200 ${
+        liked
+          ? "text-rose-500 bg-clay-rose shadow-clay-inset"
+          : "text-slate-600 dark:text-slate-400 bg-clay-surface shadow-clay-sm hover:shadow-clay-md active:shadow-clay-inset active:scale-95"
+      } ${isPressed ? "scale-95" : ""}`}
+    >
+      <div className={`relative transition-transform duration-200 ${liked ? "animate-heartBeat" : ""}`}>
+        {liked ? (
+          <svg
+            className="w-5 h-5"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+              clipRule="evenodd"
+            />
+          </svg>
+        ) : (
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+            />
+          </svg>
+        )}
+      </div>
+      <span>
+        {liked ? "Liked" : "Like"}
+        {count > 0 && ` • ${count.toLocaleString()}`}
+      </span>
+    </button>
+  );
+};
+
+// ─── Comment Toggle Button with Claymorphism ──────────────────────────────
+const CommentToggle = ({ count, isOpen, onClick }) => {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[20px] text-[14px] font-semibold transition-all duration-300 ${
+        isOpen
+          ? "text-emerald-600 bg-clay-emerald shadow-clay-inset"
+          : "text-slate-600 dark:text-slate-400 bg-clay-surface shadow-clay-sm hover:shadow-clay-md active:shadow-clay-inset"
+      }`}
+    >
+      <svg
+        className={`w-5 h-5 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+        />
+      </svg>
+      <span>
+        {count > 0 ? `${count.toLocaleString()} Comments` : "Add Comment"}
+      </span>
+    </button>
+  );
+};
+
+// ─── Share Button with Tooltip ────────────────────────────────────────────
+const ShareButton = ({ onClick }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  const handleClick = () => {
+    onClick();
+    setShowTooltip(true);
+    setTimeout(() => setShowTooltip(false), 2000);
+  };
+
+  return (
+    <div className="relative flex-1">
+      <button
+        onClick={handleClick}
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[20px] text-[14px] font-semibold text-slate-600 dark:text-slate-400 bg-clay-surface shadow-clay-sm hover:shadow-clay-md active:shadow-clay-inset transition-all duration-200"
+      >
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+          />
+        </svg>
+        Share
+      </button>
+      {showTooltip && (
+        <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-full whitespace-nowrap animate-fadeInUp shadow-clay-lg">
+          Link copied!
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Claymorphism Comment Component ───────────────────────────────────────
+const CommentItem = ({ comment, user, onReply, depth = 0 }) => {
+  const [showReply, setShowReply] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replies, setReplies] = useState(comment.replies || []);
+
+  const handleReplySubmit = () => {
+    if (!replyText.trim()) return;
+    const newReply = {
+      id: Date.now(),
+      text: replyText,
+      user: user,
+      createdAt: new Date().toISOString(),
+    };
+    setReplies([...replies, newReply]);
+    setReplyText("");
+    setShowReply(false);
+    onReply?.(comment.id, newReply);
+  };
+
+  return (
+    <div className={`flex items-start gap-3 ${depth > 0 ? "ml-8 mt-3" : ""} animate-slideIn`}>
+      <Avatar src={comment.user?.avatar} name={comment.user?.name} size="sm" />
+      <div className="flex-1 min-w-0">
+        <div className="bg-clay-surface rounded-[20px] rounded-tl-md px-4 py-2.5 shadow-clay-sm">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-bold text-[13px] text-slate-900 dark:text-slate-100">
+              {comment.user?.name || "Unknown"}
+            </span>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+              {timeAgo(comment.createdAt)}
+            </span>
+          </div>
+          <span className="text-[14px] text-slate-700 dark:text-slate-300 leading-relaxed break-words">
+            {comment.text}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 mt-1 ml-1">
+          <button
+            onClick={() => setShowReply(!showReply)}
+            className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-emerald-600 transition-colors"
+          >
+            Reply
+          </button>
+          {comment.likes > 0 && (
+            <span className="text-[11px] text-slate-400">
+              {comment.likes} likes
+            </span>
+          )}
+        </div>
+
+        {showReply && user && (
+          <div className="mt-2 animate-slideDown">
+            <div className="flex gap-2">
+              <Avatar src={user?.avatar} name={user?.name} size="sm" />
+              <div className="flex-1">
+                <input
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Write a reply..."
+                  className="w-full px-3 py-2 text-[13px] rounded-[20px] border-0 bg-clay-surface shadow-clay-inset focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                  onKeyPress={(e) => e.key === "Enter" && handleReplySubmit()}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {replies.map((reply) => (
+          <CommentItem
+            key={reply.id}
+            comment={reply}
+            user={user}
+            onReply={onReply}
+            depth={depth + 1}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ─── Claymorphism Post Card with Hidden Comments ──────────────────────────
+const PostCard = ({
+  post,
+  user,
+  token,
+  posts,
+  onPostsUpdate,
+  onAuthRequired,
+}) => {
+  const [commentText, setCommentText] = useState("");
   const [posting, setPosting] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
   const inputRef = useRef(null);
 
-  const comments = post.comments || [];
-  const hidden = comments.length - COMMENTS_PREVIEW;
-  const visible = showAll ? comments : comments.slice(-COMMENTS_PREVIEW);
-  const liked = user && post.likes?.some(l => l.userId === user.id);
-  const tok = () => token || localStorage.getItem('token');
+  useEffect(() => {
+    setIsOnline(Math.random() > 0.7);
+  }, []);
 
-  const openComment = () => {
-    if (!user) { onAuthRequired(); return; }
-    setShowInput(true);
-    setTimeout(() => inputRef.current?.focus(), 60);
+  const comments = post.comments || [];
+  const liked = user && post.likes?.some((l) => l.userId === user.id);
+  const tok = () => token || localStorage.getItem("token");
+
+  const MAX_CHARS = 280;
+  const shouldTruncate = post.content && post.content.length > MAX_CHARS;
+  const displayContent = isExpanded
+    ? post.content
+    : shouldTruncate
+      ? post.content.slice(0, MAX_CHARS) + "..."
+      : post.content;
+
+  const openCommentInput = () => {
+    if (!user) {
+      onAuthRequired();
+      return;
+    }
+    setIsCommentsOpen(true);
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   const handleLike = async () => {
-    if (!user) { onAuthRequired(); return; }
+    if (!user) {
+      onAuthRequired();
+      return;
+    }
     try {
       const res = await fetch(`${API_URL}/posts/like`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tok()}` },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tok()}`,
+        },
         body: JSON.stringify({ postId: post.id }),
       });
       const d = await res.json();
-      if (d.success) onPostsUpdate(posts.map(p => p.id !== post.id ? p : {
-        ...p,
-        likes: d.liked
-          ? [...(p.likes || []), { userId: user.id }]
-          : (p.likes || []).filter(l => l.userId !== user.id),
-      }));
-    } catch (e) { console.error(e); }
+      if (d.success)
+        onPostsUpdate(
+          posts.map((p) =>
+            p.id !== post.id
+              ? p
+              : {
+                  ...p,
+                  likes: d.liked
+                    ? [...(p.likes || []), { userId: user.id }]
+                    : (p.likes || []).filter((l) => l.userId !== user.id),
+                },
+          ),
+        );
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleComment = async (e) => {
@@ -75,59 +356,99 @@ const PostCard = ({ post, user, token, posts, onPostsUpdate, onAuthRequired }) =
     setPosting(true);
     try {
       const res = await fetch(`${API_URL}/posts/comment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tok()}` },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tok()}`,
+        },
         body: JSON.stringify({ postId: post.id, text: commentText }),
       });
       const d = await res.json();
       if (d.success) {
-        onPostsUpdate(posts.map(p => p.id !== post.id ? p : {
-          ...p, comments: [...(p.comments || []), d.comment],
-        }));
-        setCommentText('');
-        setShowAll(true);
+        onPostsUpdate(
+          posts.map((p) =>
+            p.id !== post.id
+              ? p
+              : {
+                  ...p,
+                  comments: [...(p.comments || []), d.comment],
+                },
+          ),
+        );
+        setCommentText("");
       }
-    } catch (e) { console.error(e); }
-    finally { setPosting(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPosting(false);
+    }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Delete this post?')) return;
+    if (!confirm("Delete this post? This action cannot be undone.")) return;
     try {
       const res = await fetch(`${API_URL}/posts/${post.id}`, {
-        method: 'DELETE', headers: { 'Authorization': `Bearer ${tok()}` },
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${tok()}` },
       });
       const d = await res.json();
-      if (d.success) onPostsUpdate(posts.filter(p => p.id !== post.id));
-    } catch (e) { console.error(e); }
+      if (d.success) onPostsUpdate(posts.filter((p) => p.id !== post.id));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleShare = () => {
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`);
+    }
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-
+    <article
+      className="group bg-clay-surface rounded-[32px] shadow-clay-lg hover:shadow-clay-xl transition-all duration-500 overflow-hidden transform hover:-translate-y-1"
+    >
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+      <div className="flex items-center justify-between px-6 pt-6 pb-3">
         <div className="flex items-center gap-3">
-          <Avatar src={post.user?.avatar} name={post.user?.name} size="lg" />
-          <div>
-            <p className="font-semibold text-[15px] text-gray-900 dark:text-white leading-tight">{post.user?.name || 'Unknown'}</p>
-            <p className="text-[12px] text-gray-400 flex items-center gap-1 mt-0.5">
-              {timeAgo(post.createdAt)}
-              <span>·</span>
-              <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
-              </svg>
-              <span className="text-green-500 font-medium">Public</span>
-            </p>
+          <Avatar
+            src={post.user?.avatar}
+            name={post.user?.name}
+            size="lg"
+            isOnline={isOnline}
+          />
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-[15px] text-slate-900 dark:text-slate-100 leading-tight hover:text-emerald-600 cursor-pointer transition-colors">
+                {post.user?.name || "Unknown"}
+              </span>
+              {post.user?.verified && (
+                <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 text-[12px] text-slate-500 dark:text-slate-400 mt-0.5">
+              <span>{timeAgo(post.createdAt)}</span>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
+              <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                </svg>
+                Public
+              </span>
+            </div>
           </div>
         </div>
+
         {user?.id === post.userId && (
           <button
             onClick={handleDelete}
+            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-[20px] transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100"
             title="Delete post"
-            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
@@ -136,133 +457,162 @@ const PostCard = ({ post, user, token, posts, onPostsUpdate, onAuthRequired }) =
 
       {/* ── Content ── */}
       {post.content && (
-        <p className="px-4 pb-3 text-[15px] leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{post.content}</p>
+        <div className="px-6 pb-3">
+          <p className="text-[15px] leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap">
+            {displayContent}
+          </p>
+          {shouldTruncate && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="mt-1 text-[14px] font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+            >
+              {isExpanded ? "Show less" : "Read more"}
+            </button>
+          )}
+        </div>
       )}
 
       {/* ── Media ── */}
       {post.mediaUrl && (
-        <div className="border-y border-gray-100 dark:border-gray-700">
-          {post.mediaType === 'video'
-            ? <video src={post.mediaUrl} controls className="w-full max-h-[480px] bg-black" />
-            : <img src={post.mediaUrl} alt="Post media" className="w-full max-h-[480px] object-cover" />}
+        <div className="relative overflow-hidden mx-4 rounded-[24px] shadow-clay-sm">
+          {post.mediaType === "video" ? (
+            <video
+              src={post.mediaUrl}
+              controls
+              className="w-full max-h-[500px] object-contain"
+              poster={post.mediaUrl.replace(/\.(mp4|webm|ogg)$/i, ".jpg")}
+            />
+          ) : (
+            <img
+              src={post.mediaUrl}
+              alt="Post content"
+              className="w-full max-h-[500px] object-cover transform transition-all duration-700 group-hover:scale-105"
+              loading="lazy"
+            />
+          )}
         </div>
       )}
 
-      {/* ── Engagement counts ── */}
+      {/* ── Engagement Stats ── */}
       {(post.likes?.length > 0 || comments.length > 0) && (
-        <div className="flex items-center justify-between px-4 py-2">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200/50 dark:border-slate-700/50 mx-4">
           {post.likes?.length > 0 ? (
-            <div className="flex items-center gap-1.5 text-[13px] text-gray-500 dark:text-gray-400">
-              <span className="w-[18px] h-[18px] bg-green-500 rounded-full flex items-center justify-center text-white font-bold" style={{ fontSize: 10 }}>♥</span>
-              {post.likes.length}
+            <div className="flex items-center gap-2 text-[13px] text-slate-600 dark:text-slate-400">
+              <div className="flex -space-x-1">
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-rose-400 to-rose-500 flex items-center justify-center text-white text-[10px] shadow-clay-sm">
+                  ♥
+                </div>
+              </div>
+              <span className="font-medium">
+                {post.likes.length.toLocaleString()} like
+                {post.likes.length !== 1 ? "s" : ""}
+              </span>
             </div>
-          ) : <span />}
-          {comments.length > 0 && (
-            <button onClick={openComment} className="text-[13px] text-gray-500 dark:text-gray-400 hover:underline">
-              {comments.length} comment{comments.length !== 1 ? 's' : ''}
+          ) : (
+            <span />
+          )}
+          {comments.length > 0 && !isCommentsOpen && (
+            <button
+              onClick={() => setIsCommentsOpen(true)}
+              className="text-[13px] font-medium text-slate-500 hover:text-emerald-600 transition-colors"
+            >
+              {comments.length.toLocaleString()} comment
+              {comments.length !== 1 ? "s" : ""}
             </button>
           )}
         </div>
       )}
 
-      {/* ── Action bar ── */}
-      <div className="border-t border-gray-100 dark:border-gray-700" />
-      <div className="flex items-center px-2 py-0.5">
-        <button
+      {/* ── Action Buttons (Always Visible) ── */}
+      <div className="flex items-center gap-2 p-4">
+        <LikeButton
+          liked={liked}
+          count={post.likes?.length || 0}
           onClick={handleLike}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[14px] font-medium transition-colors ${
-            liked
-              ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
-              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-        >
-          {liked
-            ? <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
-            : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>}
-          Like
-        </button>
-        <button
-          onClick={openComment}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[14px] font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-          Comment
-        </button>
+        />
+        <CommentToggle
+          count={comments.length}
+          isOpen={isCommentsOpen}
+          onClick={() => {
+            if (!user && comments.length === 0) {
+              onAuthRequired();
+              return;
+            }
+            setIsCommentsOpen(!isCommentsOpen);
+          }}
+        />
+        <ShareButton onClick={handleShare} />
       </div>
 
-      {/* ── Comments section ── */}
-      {(comments.length > 0 || showInput) && (
-        <div className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-2.5">
-
-          {/* Load previous comments */}
-          {hidden > 0 && !showAll && (
-            <button
-              onClick={() => setShowAll(true)}
-              className="text-[13px] font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition flex items-center gap-1"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-              View {hidden} previous comment{hidden !== 1 ? 's' : ''}
-            </button>
-          )}
-
-          {/* Comment list */}
-          {visible.map(c => (
-            <div key={c.id} className="flex items-start gap-2">
-              <Avatar src={c.user?.avatar} name={c.user?.name} size="sm" />
-              <div className="flex-1 min-w-0">
-                <div className="bg-gray-100 dark:bg-gray-700/70 rounded-2xl rounded-tl-sm px-3 py-2 inline-block max-w-full">
-                  <span className="font-semibold text-[13px] text-gray-900 dark:text-white mr-1.5">{c.user?.name || 'Unknown'}</span>
-                  <span className="text-[14px] text-gray-700 dark:text-gray-200 break-words">{c.text}</span>
-                </div>
-                <p className="text-[11px] text-gray-400 mt-0.5 ml-2">{timeAgo(c.createdAt)}</p>
-              </div>
-            </div>
-          ))}
-
-          {/* Collapse */}
-          {showAll && hidden > 0 && (
-            <button
-              onClick={() => setShowAll(false)}
-              className="text-[13px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition flex items-center gap-1"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              Show less
-            </button>
-          )}
-
-          {/* Comment input */}
-          {showInput && (
-            <form onSubmit={handleComment} className="flex items-center gap-2 pt-0.5">
-              <Avatar src={user?.avatar} name={user?.name} size="sm" />
-              <div className="flex-1 flex items-center bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-2 gap-2 focus-within:ring-2 focus-within:ring-green-400/40 transition">
-                <input
-                  ref={inputRef}
-                  value={commentText}
-                  onChange={e => setCommentText(e.target.value)}
-                  placeholder="Write a comment..."
-                  className="flex-1 bg-transparent text-[14px] text-gray-800 dark:text-gray-200 outline-none placeholder-gray-400"
-                  disabled={posting}
+      {/* ── Comments Section (Hidden until opened) ── */}
+      {isCommentsOpen && (
+        <div className="px-4 pb-6 pt-2 bg-gradient-to-br from-emerald-50/50 to-emerald-100/30 dark:from-slate-800/50 dark:to-slate-800/30 border-t border-slate-200/50 dark:border-slate-700/50 animate-slideDown">
+          {/* Comment List */}
+          {comments.length > 0 && (
+            <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar mb-4">
+              {comments.map((c, idx) => (
+                <CommentItem
+                  key={c.id}
+                  comment={c}
+                  user={user}
+                  onReply={(commentId, reply) => {
+                    // Handle reply functionality
+                  }}
                 />
-                <button
-                  type="submit"
-                  disabled={!commentText.trim() || posting}
-                  className="text-green-500 hover:text-green-600 disabled:opacity-30 transition flex-shrink-0"
-                >
-                  {posting
-                    ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
-                    : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>}
-                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Comment Input */}
+          {user ? (
+            <form onSubmit={handleComment} className="flex items-start gap-3 mt-4">
+              <Avatar src={user?.avatar} name={user?.name} size="sm" />
+              <div className="flex-1 flex flex-col gap-2">
+                <div className="relative flex items-center bg-clay-surface rounded-[20px] shadow-clay-inset overflow-hidden">
+                  <input
+                    ref={inputRef}
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder={comments.length > 0 ? "Write a comment..." : "Be the first to comment..."}
+                    className="flex-1 bg-transparent px-4 py-2.5 text-[14px] text-slate-800 dark:text-slate-200 outline-none placeholder-slate-400"
+                    disabled={posting}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!commentText.trim() || posting}
+                    className="p-2 mr-1 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:opacity-30 rounded-[20px] transition-all duration-200"
+                  >
+                    {posting ? (
+                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
+          ) : (
+            <div className="text-center py-4">
+              <button
+                onClick={() => onAuthRequired()}
+                className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+              >
+                Sign in to join the conversation
+              </button>
+            </div>
           )}
         </div>
       )}
-    </div>
+    </article>
   );
 };
 
-// ─── SocialPage ───────────────────────────────────────────────────────────────
-
+// ─── Main SocialPage Component with Claymorphism ──────────────────────────
 const SocialPage = () => {
   const [theme, setTheme] = useState("light");
   const [posts, setPosts] = useState([]);
@@ -275,29 +625,86 @@ const SocialPage = () => {
   const [mediaPreview, setMediaPreview] = useState(null);
   const [mediaUrl, setMediaUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [charCount, setCharCount] = useState(0);
+  const [mounted, setMounted] = useState(false);
+  const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-color-scheme: dark)").matches) setTheme("dark");
+    setMounted(true);
+    
+    // Get theme from localStorage or system preference
+    const savedTheme = localStorage.getItem("theme");
+    const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initialTheme = savedTheme || (systemDark ? "dark" : "light");
+    setTheme(initialTheme);
 
-    const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
+    // Apply theme to document
+    if (initialTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+
+    const savedToken = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
     if (savedToken && savedUser) {
       try {
-        const payload = JSON.parse(atob(savedToken.split('.')[1]));
+        const payload = JSON.parse(atob(savedToken.split(".")[1]));
         if (payload.exp * 1000 < Date.now()) {
-          console.warn('⚠️ Token expired. Please log in again.');
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
         } else {
           setToken(savedToken);
           setUser(JSON.parse(savedUser));
         }
       } catch {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
       }
     }
     fetchPosts();
+  }, []);
+
+  // Listen for theme changes from other components
+  useEffect(() => {
+    const handleThemeChange = (e) => {
+      const newTheme = e.detail?.theme || localStorage.getItem("theme");
+      if (newTheme) {
+        setTheme(newTheme);
+        if (newTheme === "dark") {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+      }
+    };
+
+    window.addEventListener("themeChange", handleThemeChange);
+    
+    // Also listen for storage changes
+    const handleStorageChange = (e) => {
+      if (e.key === "theme") {
+        const newTheme = e.newValue;
+        if (newTheme) {
+          setTheme(newTheme);
+          if (newTheme === "dark") {
+            document.documentElement.classList.add("dark");
+          } else {
+            document.documentElement.classList.remove("dark");
+          }
+        }
+      }
+    };
+    
+    window.addEventListener("storage", handleStorageChange);
+    
+    return () => {
+      window.removeEventListener("themeChange", handleThemeChange);
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, []);
 
   const fetchPosts = async () => {
@@ -305,204 +712,593 @@ const SocialPage = () => {
       const res = await fetch(`${API_URL}/posts`);
       const d = await res.json();
       if (d.success) setPosts(d.posts);
-    } catch (e) { console.error('❌ Failed to fetch posts:', e.message); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error("Failed to fetch posts:", e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAuthSuccess = (userData, userToken) => {
     setUser(userData);
     setToken(userToken);
-    localStorage.setItem('token', userToken);
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem("token", userToken);
+    localStorage.setItem("user", JSON.stringify(userData));
     setShowAuthModal(false);
   };
 
   const handleLogout = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
   };
 
   const handleFileChange = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith('image/') && !f.type.startsWith('video/')) { alert('Image or video only'); return; }
-    if (f.size > 10 * 1024 * 1024) { alert('File size must be under 10 MB'); return; }
+    validateAndSetFile(f);
+  };
+
+  const validateAndSetFile = (f) => {
+    if (!f.type.startsWith("image/") && !f.type.startsWith("video/")) {
+      alert("Please upload an image or video file only");
+      return;
+    }
+    if (f.size > 50 * 1024 * 1024) {
+      alert("File size must be under 50 MB");
+      return;
+    }
     setMediaFile(f);
     setMediaPreview(URL.createObjectURL(f));
-    setMediaUrl('');
+    setMediaUrl("");
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) validateAndSetFile(f);
   };
 
   const handleCreatePost = async () => {
-    if (!user) { setShowAuthModal(true); return; }
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     if (!postContent.trim() && !mediaFile && !mediaUrl) return;
+
     setUploading(true);
     try {
-      let finalUrl = mediaUrl, mediaType = null;
+      let finalUrl = mediaUrl,
+        mediaType = null;
       if (mediaFile) {
         const r = await uploadToCloudinary(mediaFile);
-        finalUrl = r.url; mediaType = r.type;
+        finalUrl = r.url;
+        mediaType = r.type;
       } else if (mediaUrl) {
-        mediaType = mediaUrl.match(/\.(mp4|webm|ogg)$/i) ? 'video' : 'image';
+        mediaType = mediaUrl.match(/\.(mp4|webm|ogg|mov)$/i)
+          ? "video"
+          : "image";
       }
-      const tk = token || localStorage.getItem('token');
+
+      const tk = token || localStorage.getItem("token");
       const res = await fetch(`${API_URL}/posts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tk}` },
-        body: JSON.stringify({ content: postContent, mediaUrl: finalUrl, mediaType }),
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${tk}`,
+        },
+        body: JSON.stringify({
+          content: postContent,
+          mediaUrl: finalUrl,
+          mediaType,
+        }),
       });
       const d = await res.json();
       if (d.success) {
-        setPosts(prev => [d.post, ...prev]);
-        setPostContent(''); setMediaFile(null); setMediaPreview(null); setMediaUrl('');
-      } else { alert(d.message); }
-    } catch (e) { console.error(e); alert('Failed to create post'); }
-    finally { setUploading(false); }
+        setPosts((prev) => [d.post, ...prev]);
+        setPostContent("");
+        setCharCount(0);
+        setMediaFile(null);
+        setMediaPreview(null);
+        setMediaUrl("");
+      } else {
+        alert(d.message);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to create post. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   };
 
+  const clearMedia = () => {
+    setMediaFile(null);
+    setMediaPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleContentChange = (e) => {
+    const value = e.target.value;
+    setPostContent(value);
+    setCharCount(value.length);
+  };
+
+  const insertEmoji = (emoji) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newText =
+      postContent.substring(0, start) + emoji + postContent.substring(end);
+    setPostContent(newText);
+    setCharCount(newText.length);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+    }, 0);
+  };
+
+  if (!mounted) {
+    return null;
+  }
+
   return (
-    <div className={theme === "dark" ? "dark" : ""}>
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-950 transition-colors duration-300">
-
-        {/* ── Sticky Header ── */}
-        <header className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="max-w-[680px] mx-auto px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow">
-                <span className="text-white text-lg leading-none">🌱</span>
-              </div>
-              <div>
-                <p className="text-[15px] font-bold text-gray-900 dark:text-white leading-none">AgriSense</p>
-                <p className="text-[11px] text-gray-400 leading-none mt-0.5">Community Feed</p>
-              </div>
-            </div>
-            {user ? (
-              <div className="flex items-center gap-2">
-                <Avatar src={user.avatar} name={user.name} size="md" />
-                <p className="hidden sm:block text-[13px] font-semibold text-gray-800 dark:text-white">{user.name}</p>
-                <button
-                  onClick={handleLogout}
-                  className="ml-1 text-[12px] px-3 py-1.5 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-[13px] font-semibold rounded-lg transition shadow-sm"
-              >
-                Login / Sign Up
-              </button>
-            )}
-          </div>
-        </header>
-
-        <main className="max-w-[680px] mx-auto px-3 py-4 space-y-3">
-
-          {/* ── Create Post ── */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4">
-            <div className="flex items-start gap-3">
-              <Avatar src={user?.avatar} name={user?.name || '?'} size="md" />
+    <div
+      className={`${theme === "dark" ? "dark" : ""} min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors duration-300`}
+    >
+      <main className="max-w-[680px] mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 pb-20">
+        {/* ── Claymorphism Create Post Card ── */}
+        <div className="bg-clay-surface rounded-[32px] shadow-clay-xl hover:shadow-clay-2xl transition-all duration-300 overflow-hidden">
+          <div className="p-4 sm:p-5">
+            <div className="flex gap-3">
+              <Avatar
+                src={user?.avatar}
+                name={user?.name || "Guest"}
+                size="md"
+              />
               <div className="flex-1">
                 {user ? (
-                  <textarea
-                    value={postContent}
-                    onChange={e => setPostContent(e.target.value)}
-                    placeholder="What's on your mind? Share your farming update..."
-                    rows={2}
-                    className="w-full bg-gray-100 dark:bg-gray-700 rounded-2xl px-4 py-2.5 text-[15px] text-gray-800 dark:text-gray-200 placeholder-gray-400 outline-none resize-none focus:ring-2 focus:ring-green-400/30 transition"
-                  />
+                  <div className="relative">
+                    <textarea
+                      ref={textareaRef}
+                      value={postContent}
+                      onChange={handleContentChange}
+                      placeholder="What's happening in your farm? Share an update..."
+                      rows={3}
+                      maxLength={500}
+                      className="w-full bg-clay-surface rounded-[24px] px-4 py-3 text-[15px] text-slate-800 dark:text-slate-200 placeholder-slate-500 outline-none resize-none shadow-clay-inset focus:shadow-clay-md transition-all duration-200"
+                    />
+                    {showEmojiPicker && (
+                      <div className="absolute bottom-full left-0 mb-2 bg-clay-surface rounded-[24px] shadow-clay-lg p-2 z-10 animate-scaleIn">
+                        <div className="grid grid-cols-6 gap-1">
+                          {[
+                            "😊",
+                            "😂",
+                            "❤️",
+                            "👍",
+                            "🌾",
+                            "🚜",
+                            "🌱",
+                            "🐄",
+                            "🌽",
+                            "🍅",
+                            "🥕",
+                            "🐔",
+                          ].map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => insertEmoji(emoji)}
+                              className="text-xl hover:bg-emerald-50 dark:hover:bg-slate-700 p-1 rounded-[12px] transition-colors"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <button
                     onClick={() => setShowAuthModal(true)}
-                    className="w-full text-left bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-2xl px-4 py-2.5 text-[14px] text-gray-400 transition"
+                    className="w-full text-left bg-clay-surface rounded-[24px] px-4 py-3 text-[15px] text-slate-500 dark:text-slate-400 shadow-clay-inset hover:shadow-clay-md transition-all duration-200"
                   >
-                    What's on your mind?
+                    What's happening in your farm? Share an update...
                   </button>
                 )}
-
-                {/* Media preview */}
-                {mediaPreview && (
-                  <div className="relative mt-3 rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700">
-                    {mediaFile?.type.startsWith('video')
-                      ? <video src={mediaPreview} controls className="w-full max-h-52" />
-                      : <img src={mediaPreview} alt="Preview" className="w-full max-h-52 object-cover" />}
-                    <button
-                      onClick={() => { setMediaFile(null); setMediaPreview(null); }}
-                      className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                  </div>
-                )}
-
-                {/* URL input */}
-                {user && !mediaFile && (
-                  <input
-                    type="url"
-                    value={mediaUrl}
-                    onChange={e => setMediaUrl(e.target.value)}
-                    placeholder="Or paste image / video URL..."
-                    className="w-full mt-2 px-3 py-2 text-[13px] rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-400/30 transition"
-                  />
-                )}
-
-                {/* Toolbar */}
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium text-gray-500 dark:text-gray-400 transition ${user ? 'hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
-                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    Photo / Video
-                    <input type="file" accept="image/*,video/*" onChange={handleFileChange} disabled={!user} className="hidden" />
-                  </label>
-                  <button
-                    onClick={handleCreatePost}
-                    disabled={!user || uploading || (!postContent.trim() && !mediaFile && !mediaUrl)}
-                    className="px-5 py-2 bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-semibold rounded-lg transition shadow-sm"
-                  >
-                    {uploading ? 'Posting...' : 'Post'}
-                  </button>
-                </div>
               </div>
             </div>
+
+            {/* Media Preview */}
+            {mediaPreview && (
+              <div className="relative mt-4 rounded-[24px] overflow-hidden shadow-clay-sm group animate-scaleIn">
+                {mediaFile?.type.startsWith("video") ? (
+                  <video
+                    src={mediaPreview}
+                    controls
+                    className="w-full max-h-64 bg-slate-900"
+                  />
+                ) : (
+                  <img
+                    src={mediaPreview}
+                    alt="Preview"
+                    className="w-full max-h-64 object-cover"
+                  />
+                )}
+                <button
+                  onClick={clearMedia}
+                  className="absolute top-2 right-2 bg-black/70 hover:bg-black/90 text-white rounded-full p-2 backdrop-blur-sm transition-all duration-200 opacity-0 group-hover:opacity-100"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* URL Input */}
+            {user && !mediaFile && (
+              <div className="mt-3">
+                <input
+                  type="url"
+                  value={mediaUrl}
+                  onChange={(e) => setMediaUrl(e.target.value)}
+                  placeholder="Paste image or video URL..."
+                  className="w-full px-4 py-2.5 text-[13px] rounded-[20px] border-0 bg-clay-surface shadow-clay-inset text-slate-700 dark:text-slate-300 placeholder-slate-400 outline-none focus:shadow-clay-md transition-all duration-200"
+                />
+              </div>
+            )}
+
+            {/* Drag & Drop Zone */}
+            {user && !mediaPreview && (
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`mt-3 border-2 border-dashed rounded-[24px] p-4 sm:p-6 text-center transition-all duration-200 cursor-pointer ${
+                  isDragging
+                    ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 shadow-clay-lg scale-105"
+                    : "border-emerald-300 dark:border-slate-600 bg-clay-surface shadow-clay-sm hover:shadow-clay-md"
+                }`}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <svg
+                  className="w-10 h-10 mx-auto mb-2 text-emerald-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <p className="text-[13px] text-slate-600 dark:text-slate-400">
+                  {isDragging
+                    ? "Drop your file here"
+                    : "Drag & drop or click to upload"}
+                </p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                  Images or videos up to 50MB
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* ── Feed ── */}
-          {loading ? (
-            <div className="text-center py-16">
-              <div className="w-10 h-10 border-[3px] border-green-500 border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="mt-3 text-[14px] text-gray-500 dark:text-gray-400">Loading posts...</p>
-            </div>
-          ) : posts.length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 py-16 text-center shadow-sm">
-              <p className="text-5xl mb-3">🌾</p>
-              <p className="text-[15px] font-semibold text-gray-700 dark:text-gray-300">No posts yet</p>
-              <p className="text-[13px] text-gray-400 mt-1">Be the first to share something with the community!</p>
-            </div>
-          ) : (
-            posts.map(post => (
-              <PostCard
-                key={post.id}
-                post={post}
-                user={user}
-                token={token}
-                posts={posts}
-                onPostsUpdate={setPosts}
-                onAuthRequired={() => setShowAuthModal(true)}
-              />
-            ))
-          )}
-        </main>
+          {/* Toolbar */}
+          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-emerald-50/50 to-emerald-100/30 dark:from-slate-800/50 dark:to-slate-800/30 border-t border-emerald-200/50 dark:border-slate-700/50">
+            <div className="flex items-center gap-1">
+              <label
+                className={`flex items-center gap-2 px-3 py-2 rounded-[20px] text-[13px] font-medium transition-all duration-200 ${
+                  user
+                    ? "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 cursor-pointer hover:scale-105"
+                    : "text-slate-400 cursor-not-allowed"
+                }`}
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                Media
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleFileChange}
+                  disabled={!user}
+                  className="hidden"
+                />
+              </label>
 
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          onSuccess={handleAuthSuccess}
-        />
-      </div>
+              {user && (
+                <button
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-[20px] text-[13px] font-medium text-slate-600 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-slate-700/50 transition-all duration-200 hover:scale-105"
+                >
+                  😊 Emoji
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <div
+                  className={`w-1.5 h-1.5 rounded-full ${charCount > 450 ? "bg-rose-500 animate-pulse" : "bg-emerald-500"}`}
+                />
+                <span
+                  className={`text-[12px] font-mono ${charCount > 500 ? "text-rose-500" : "text-slate-400 dark:text-slate-500"}`}
+                >
+                  {charCount}/500
+                </span>
+              </div>
+              <button
+                onClick={handleCreatePost}
+                disabled={
+                  !user ||
+                  uploading ||
+                  (!postContent.trim() && !mediaFile && !mediaUrl)
+                }
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[14px] font-bold rounded-[24px] transition-all duration-200 shadow-clay-md hover:shadow-clay-lg hover:-translate-y-0.5 active:translate-y-0"
+              >
+                {uploading ? (
+                  <span className="flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8z"
+                      />
+                    </svg>
+                    Posting...
+                  </span>
+                ) : (
+                  "Post"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Feed ── */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 space-y-4">
+            <div className="relative">
+              <div className="w-12 h-12 rounded-full border-4 border-emerald-200 dark:border-emerald-900/30 border-t-emerald-500 animate-spin" />
+              <div
+                className="absolute inset-0 w-12 h-12 rounded-full border-4 border-transparent border-t-emerald-300/30 animate-spin"
+                style={{ animationDuration: "1.5s" }}
+              />
+            </div>
+            <p className="text-[15px] font-medium text-slate-500 dark:text-slate-400 animate-pulse">
+              Loading community posts...
+            </p>
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="bg-clay-surface rounded-[32px] shadow-clay-xl py-20 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/20 rounded-[32px] flex items-center justify-center animate-bounce shadow-clay-lg">
+              <span className="text-4xl">🌾</span>
+            </div>
+            <h3 className="text-[18px] font-bold text-slate-800 dark:text-slate-200 mb-2">
+              No posts yet
+            </h3>
+            <p className="text-[14px] text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+              Be the first to share your farming journey with the community!
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {posts.map((post, index) => (
+              <div
+                key={post.id}
+                className="animate-fadeInUp"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <PostCard
+                  post={post}
+                  user={user}
+                  token={token}
+                  posts={posts}
+                  onPostsUpdate={setPosts}
+                  onAuthRequired={() => setShowAuthModal(true)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {user && (
+        <div className="fixed bottom-6 left-6 z-50">
+          <button
+            onClick={handleLogout}
+            className="p-3 rounded-full bg-clay-surface text-slate-600 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-slate-700 transition-all duration-300 shadow-clay-md hover:shadow-clay-lg hover:scale-110 active:scale-95"
+            aria-label="Logout"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={handleAuthSuccess}
+      />
+
+      {/* Claymorphism Styles */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes heartBeat {
+          0% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.3);
+          }
+          100% {
+            transform: scale(1);
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        .animate-fadeInUp {
+          animation: fadeInUp 0.5s ease-out forwards;
+          opacity: 0;
+        }
+
+        .animate-slideDown {
+          animation: slideDown 0.3s ease-out;
+        }
+
+        .animate-slideIn {
+          animation: slideIn 0.3s ease-out;
+        }
+
+        .animate-scaleIn {
+          animation: scaleIn 0.2s ease-out;
+        }
+
+        .animate-heartBeat {
+          animation: heartBeat 0.3s ease-in-out;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.05);
+          border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(0, 0, 0, 0.3);
+        }
+
+        .dark .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+        }
+
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+        }
+      `}</style>
     </div>
   );
 };

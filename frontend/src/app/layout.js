@@ -5,8 +5,8 @@ import "./globals.css";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { RiPlantLine } from "react-icons/ri";
-import { Header } from "@/components/layout";
-import { Footer } from "@/components/common";
+import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/common/Footer";
 
 // Improved font choices
 const inter = Inter({
@@ -52,6 +52,9 @@ export default function RootLayout({ children }) {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
+    window.dispatchEvent(
+      new CustomEvent("themeChange", { detail: { theme: newTheme } })
+    );
   };
 
   const toggleMobileMenu = () => {

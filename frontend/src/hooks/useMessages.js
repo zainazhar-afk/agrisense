@@ -13,7 +13,11 @@ export const useMessages = () => {
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "auto",
+      block: "nearest",
+      inline: "nearest",
+    });
   }, []);
 
   useEffect(() => {
