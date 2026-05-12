@@ -7,6 +7,7 @@ import sys
 import json
 import numpy as np
 import tensorflow as tf
+import onnxruntime as ort
 from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -23,15 +24,67 @@ import config
 from src.data_preprocessing import setup_gpu, create_datasets, load_class_mapping
 
 
+class ONNXModelWrapper:
+    """Minimal Keras-like wrapper around an ONNX Runtime session."""
+
+    def __init__(self, model_path: Path):
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model not found at {model_path}")
+
+        print(f"📦 Loading ONNX model from {model_path}")
+        self.session = ort.InferenceSession(
+            str(model_path),
+            providers=["CPUExecutionProvider"],
+        )
+        self.input_name = self.session.get_inputs()[0].name
+        self.output_name = self.session.get_outputs()[0].name
+        self.input_shape = self.session.get_inputs()[0].shape
+        self.output_shape = self.session.get_outputs()[0].shape
+
+    @staticmethod
+    def _softmax_if_needed(values: np.ndarray) -> np.ndarray:
+        values = values.astype(np.float32)
+        total = float(np.sum(values))
+        if np.all(values >= 0) and np.isclose(total, 1.0, atol=1e-3):
+            return values
+
+        values = values - np.max(values, axis=-1, keepdims=True)
+        exp_values = np.exp(values)
+        return exp_values / np.sum(exp_values, axis=-1, keepdims=True)
+
+    def predict(self, images, verbose: int = 0):
+        del verbose
+        if isinstance(images, tf.Tensor):
+            images = images.numpy()
+
+        processed_images = np.asarray(images, dtype=np.float32)
+        raw_output = self.session.run(
+            [self.output_name],
+            {self.input_name: processed_images},
+        )[0]
+        return self._softmax_if_needed(raw_output)
+
+    def count_params(self):
+        return 0
+
+
 def load_trained_model():
     """Load the trained model"""
-    if not config.MODEL_H5_PATH.exists():
-        raise FileNotFoundError(f"Model not found at {config.MODEL_H5_PATH}")
-    
-    print(f"📦 Loading model from {config.MODEL_H5_PATH}")
-    model = tf.keras.models.load_model(config.MODEL_H5_PATH)
-    print("✓ Model loaded successfully")
-    return model
+    if config.MODEL_H5_PATH.exists():
+        print(f"📦 Loading model from {config.MODEL_H5_PATH}")
+        model = tf.keras.models.load_model(config.MODEL_H5_PATH)
+        print("✓ Model loaded successfully")
+        return model
+
+    if config.MODEL_ONNX_PATH.exists():
+        model = ONNXModelWrapper(config.MODEL_ONNX_PATH)
+        print("✓ Model loaded successfully")
+        return model
+
+    raise FileNotFoundError(
+        "No trained model found. Expected one of: "
+        f"{config.MODEL_H5_PATH} or {config.MODEL_ONNX_PATH}"
+    )
 
 
 def evaluate_model(model, test_ds, class_names):

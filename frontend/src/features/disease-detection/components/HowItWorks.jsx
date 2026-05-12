@@ -13,7 +13,7 @@ export const HowItWorks = () => {
       </h3>
 
       <p className="mt-4 text-gray-600 dark:text-gray-300">
-        AgriSense AI uses transfer learning and convolutional neural networks trained on thousands of plant leaf images to detect diseases with high accuracy
+        AgriSense AI uses an EfficientNetB3 cotton leaf model trained on SAR-CLD-2024 imagery to detect disease patterns with high accuracy
       </p>
 
       <div className="mt-8 space-y-4">

@@ -56,7 +56,7 @@ export const ImageUploadSection = ({ onAnalyze, onResult }) => {
       </h2>
 
       <p className="mt-2 text-gray-600 dark:text-gray-300">
-        Supported formats JPG, PNG. Use a clear image with visible leaf texture
+        Supported formats JPG and PNG. Use a clear cotton leaf image with visible texture
       </p>
 
       <label className="mt-6 flex flex-col items-center justify-center border-2 border-dashed border-green-300 dark:border-green-700 rounded-2xl p-8 cursor-pointer hover:bg-green-50 dark:hover:bg-gray-700 transition">

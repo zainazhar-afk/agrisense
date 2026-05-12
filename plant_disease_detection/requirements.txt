@@ -1,6 +1,9 @@
 # Plant Disease Detection Module - Requirements
 
-# Core ML/DL frameworks
+# Core inference runtime
+onnxruntime>=1.17.0
+
+# Training / model export utilities
 tensorflow>=2.10.0
 keras>=3.0.0
 

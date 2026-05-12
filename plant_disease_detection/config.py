@@ -1,12 +1,12 @@
 """
-Configuration file for Plant Disease Detection Module
+Configuration file for Cotton Leaf Disease Detection Module
 """
 import os
 from pathlib import Path
 
 # Base directories
 BASE_DIR = Path(__file__).parent
-DATA_DIR = BASE_DIR.parent / "PlantVillage"
+DATA_DIR = BASE_DIR.parent / "CottonDataset"
 MODELS_DIR = BASE_DIR / "models"
 LOGS_DIR = BASE_DIR / "logs"
 
@@ -15,7 +15,7 @@ MODELS_DIR.mkdir(exist_ok=True)
 LOGS_DIR.mkdir(exist_ok=True)
 
 # Dataset configuration
-IMAGE_SIZE = (224, 224)  # EfficientNetB0 input size
+IMAGE_SIZE = (300, 300)  # EfficientNetB3 cotton model input size
 BATCH_SIZE = 32  # Optimized for Mac GPU/CPU
 VALIDATION_SPLIT = 0.2
 TEST_SPLIT = 0.1
@@ -34,7 +34,7 @@ REDUCE_LR_PATIENCE = 4
 MIN_LEARNING_RATE = 1e-7
 
 # Model configuration
-MODEL_NAME = "EfficientNetB0"
+MODEL_NAME = "CottonDiseaseEfficientNetB3"
 WEIGHTS = "imagenet"
 INCLUDE_TOP = False
 POOLING = "avg"
@@ -63,8 +63,9 @@ FINE_TUNE_EPOCHS = 15  # Additional epochs for fine-tuning
 CLASS_NAMES = []
 
 # Model paths
-MODEL_H5_PATH = MODELS_DIR / "plant_disease_efficientnet.h5"
-MODEL_SAVEDMODEL_PATH = MODELS_DIR / "plant_disease_savedmodel"
+MODEL_ONNX_PATH = MODELS_DIR / "cotton_model.onnx"
+MODEL_H5_PATH = MODELS_DIR / "cotton_model.keras"
+MODEL_SAVEDMODEL_PATH = MODELS_DIR / "cotton_disease_savedmodel"
 CLASS_MAPPING_PATH = MODELS_DIR / "class_mapping.json"
 TRAINING_HISTORY_PATH = MODELS_DIR / "training_history.json"
 

@@ -45,14 +45,14 @@ export const FERTILIZER_RECOMMENDATIONS = [
 
 // Disease Detection Constants
 export const DISEASE_DETECTION_RESULT = {
-  disease: "Early Blight",
-  confidence: "92%",
-  severity: "Moderate",
+  disease: "Bacterial Blight",
+  confidence: "94%",
+  severity: "High",
   treatment: [
-    "Remove infected leaves immediately",
-    "Apply fungicide containing chlorothalonil",
-    "Avoid overhead watering",
-    "Ensure proper air circulation",
+    "Remove infected plant debris",
+    "Use copper-based bactericides where locally recommended",
+    "Avoid working in fields when foliage is wet",
+    "Use resistant cotton varieties in future planting",
   ],
 };
 

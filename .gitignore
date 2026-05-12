@@ -36,6 +36,7 @@ PlantVillage/
 # Model files - Large files
 *.h5
 *.hdf5
+*.onnx
 *.pb
 *.ckpt
 *.pth
