@@ -1,250 +1,550 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { useMessages } from "@/hooks";
-import { Header } from "@/components/common";
-import { RiRobotLine, RiUserLine, RiSendPlaneLine } from "react-icons/ri";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { RiRobotLine, RiSendPlaneLine, RiUserLine, RiVolumeUpLine, RiMicLine, RiDeleteBin2Line, RiAddLine } from "react-icons/ri";
+import AuthModal from "@/components/AuthModal";
+import {
+  askRagAssistant,
+  getChatSession,
+  getChatSessions,
+  saveChatSession,
+  translateAssistantText,
+  speakText,
+} from "@/utils/api";
 
-// ─── Claymorphism Chat Message Component ───────────────────────────────────
-export const ChatMessage = ({ sender, text, index }) => {
-  const isUser = sender === "user";
+const LANGUAGES = [
+  { code: "ur", label: "Urdu", speech: "ur-PK", dir: "rtl" },
+  { code: "pa", label: "Punjabi", speech: "ur-PK", dir: "rtl" },
+  { code: "en", label: "English", speech: "en-US", dir: "ltr" },
+];
+
+const getLanguage = (code) => LANGUAGES.find((language) => language.code === code) || LANGUAGES[0];
+
+const makeTitle = (messages) => {
+  const firstQuestion = messages.find((message) => message.sender === "user")?.text;
+  return firstQuestion?.slice(0, 80) || "AgriSense chat";
+};
+
+export const ChatMessage = ({
+  message,
+  index,
+  onSpeak,
+  onTranslate,
+  translating,
+}) => {
+  const isUser = message.sender === "user";
+  const language = getLanguage(message.language || "en");
+  const [translatedText, setTranslatedText] = useState(null);
+  const hasReliableSources = !isUser && message.sources && message.sources.length > 0;
 
   return (
     <motion.div
       initial={{ opacity: 0, x: isUser ? 20 : -20, y: 20 }}
       animate={{ opacity: 1, x: 0, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
+      transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.2) }}
       className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}
     >
-      <div className={`flex gap-3 max-w-[85%] ${isUser ? "flex-row-reverse" : "flex-row"}`}>
-        {/* Avatar with Claymorphism */}
+      <div className={`flex gap-3 max-w-[88%] ${isUser ? "flex-row-reverse" : "flex-row"}`}>
         <div className="flex-shrink-0">
-          <div className={`w-8 h-8 rounded-[16px] bg-clay-surface shadow-clay-sm flex items-center justify-center ${
-            isUser ? "bg-gradient-to-br from-emerald-500 to-emerald-600" : "bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/20"
+          <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shadow-sm ${
+            isUser ? "bg-emerald-600" : hasReliableSources ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-yellow-100 dark:bg-yellow-900/40"
           }`}>
             {isUser ? (
-              <RiUserLine className={`w-4 h-4 ${isUser ? "text-white" : "text-emerald-600 dark:text-emerald-400"}`} />
+              <RiUserLine className="w-4 h-4 text-white" />
             ) : (
-              <RiRobotLine className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <RiRobotLine className={`w-4 h-4 ${hasReliableSources ? "text-emerald-700 dark:text-emerald-300" : "text-yellow-700 dark:text-yellow-300"}`} />
             )}
           </div>
         </div>
 
-        {/* Message Bubble with Claymorphism */}
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className={`relative px-4 py-3 rounded-[24px] shadow-clay-sm transition-all duration-200 ${
-            isUser
-              ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white"
-              : "bg-clay-surface text-gray-800 dark:text-gray-100"
-          }`}
-        >
-          <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
-            {text}
-          </p>
-          
-          {/* Decorative Clay Element */}
-          <div className={`absolute -top-1 ${isUser ? "right-2" : "left-2"} w-2 h-2 rounded-full ${
-            isUser ? "bg-emerald-400" : "bg-emerald-300 dark:bg-emerald-600"
-          }`} />
-        </motion.div>
-      </div>
-    </motion.div>
-  );
-};
-
-// ─── Claymorphism Chat Messages Container ─────────────────────────────────
-export const ChatMessages = ({ messages, messagesEndRef }) => {
-  return (
-    <div className="flex-1 overflow-y-auto mb-4 px-4 space-y-2 custom-scrollbar">
-      <AnimatePresence>
-        {messages.map((msg, idx) => (
-          <ChatMessage key={idx} sender={msg.sender} text={msg.text} index={idx} />
-        ))}
-      </AnimatePresence>
-      <div ref={messagesEndRef} />
-    </div>
-  );
-};
-
-// ─── Claymorphism Chat Input Component ────────────────────────────────────
-export const ChatInput = ({
-  input,
-  onInputChange,
-  onSend,
-  onKeyPress,
-  loading,
-}) => {
-  return (
-    <div className="relative mt-4">
-      {/* Decorative Clay Background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-emerald-600/5 rounded-[32px] blur-xl" />
-      
-      <div className="relative bg-clay-surface rounded-[32px] shadow-clay-lg p-2">
-        <div className="flex items-center gap-3">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              className="w-full px-5 py-3.5 text-sm rounded-[24px] border-0 bg-clay-surface shadow-clay-inset focus:shadow-clay-md transition-all duration-200 outline-none focus:ring-2 focus:ring-emerald-500/50 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-              placeholder="Ask me anything about your crops, weather, pests, or farming tips..."
-              value={input}
-              onChange={(e) => onInputChange(e.target.value)}
-              onKeyPress={onKeyPress}
-              disabled={loading}
-            />
-            
-            {/* Character count (optional) */}
-            {input.length > 0 && (
-              <div className="absolute right-3 bottom-2 text-xs text-gray-400">
-                {input.length}/500
-              </div>
-            )}
-          </div>
-          
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={onSend}
-            disabled={loading || !input.trim()}
-            className="relative px-5 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-[24px] font-semibold text-sm transition-all duration-200 shadow-clay-md hover:shadow-clay-lg flex items-center gap-2"
+        <div>
+          <div
+            dir={language.dir}
+            className={`relative px-4 py-3 rounded-2xl shadow-sm ${
+              isUser
+                ? "bg-emerald-600 text-white"
+                : hasReliableSources
+                ? "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-emerald-100 dark:border-gray-700"
+                : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border-2 border-yellow-200 dark:border-yellow-700/50"
+            }`}
           >
-            {loading ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                </svg>
-                <span>Sending...</span>
-              </>
-            ) : (
-              <>
-                <RiSendPlaneLine className="w-4 h-4" />
-                <span>Send</span>
-              </>
-            )}
-          </motion.button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Claymorphism Empty State Component ───────────────────────────────────
-export const EmptyState = () => {
-  const suggestions = [
-    "How to increase crop yield?",
-    "Identify common plant diseases",
-    "Best time to plant wheat",
-    "Organic pest control methods",
-    "Weather forecast for farming",
-    "Soil health improvement tips",
-  ];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center h-full text-center px-4"
-    >
-      <div className="w-24 h-24 rounded-[32px] bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/20 flex items-center justify-center mb-6 shadow-clay-lg">
-        <RiRobotLine className="w-12 h-12 text-emerald-600 dark:text-emerald-400" />
-      </div>
-      
-      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-        AI Assistant Ready to Help
-      </h3>
-      
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-md">
-        Ask me anything about farming, crop management, pest control, weather conditions, and more!
-      </p>
-      
-      <div className="grid grid-cols-2 gap-2 max-w-lg">
-        {suggestions.map((suggestion, idx) => (
-          <motion.button
-            key={idx}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: idx * 0.05 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400 bg-clay-surface shadow-clay-sm hover:shadow-clay-md rounded-[20px] transition-all duration-200"
-          >
-            {suggestion}
-          </motion.button>
-        ))}
-      </div>
-    </motion.div>
-  );
-};
-
-// ─── Main Assistant Content Component ─────────────────────────────────────
-export default function AssistantContent() {
-  const { messages, input, loading, messagesEndRef, setInput, sendMessage, handleKeyPress } = useMessages();
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 transition-colors duration-300">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Header with Claymorphism */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
-        >
-          <div className="bg-clay-surface rounded-[32px] shadow-clay-lg p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-[28px] bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-clay-md">
-                <RiRobotLine className="w-7 h-7 text-white" />
+            {!isUser && !hasReliableSources && (
+              <div className="mb-2 inline-block rounded bg-yellow-100 dark:bg-yellow-900/40 px-2 py-1 text-xs font-semibold text-yellow-700 dark:text-yellow-300">
+                💡 General Knowledge (No Source Documents)
               </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-700 dark:from-emerald-400 dark:to-emerald-500 bg-clip-text text-transparent">
-                  AgriSense AI Assistant
-                </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Get smart, context-aware agricultural advice instantly
-                </p>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Main Chat Area */}
-        <main className="flex flex-col h-[calc(100vh-240px)] bg-clay-surface rounded-[32px] shadow-clay-xl overflow-hidden">
-          {/* Messages Container */}
-          <div className="flex-1 overflow-hidden">
-            {messages.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <ChatMessages messages={messages} messagesEndRef={messagesEndRef} />
             )}
-          </div>
-
-          {/* Input Area */}
-          <div className="p-4 border-t border-emerald-100/50 dark:border-slate-700/50">
-            <ChatInput
-              input={input}
-              onInputChange={setInput}
-              onSend={() => sendMessage()}
-              onKeyPress={(e) => handleKeyPress(e)}
-              loading={loading}
-            />
-          </div>
-        </main>
-
-        {/* Footer with Claymorphism */}
-        <motion.footer
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-6 text-center"
-        >
-          <div className="bg-clay-surface rounded-[24px] shadow-clay-sm px-4 py-3">
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              🤖 AgriSense AI Assistant is here to help. Ask anything related to farming, crops, weather, and sustainable agriculture!
+            {!isUser && hasReliableSources && (
+              <div className="mb-2 inline-block rounded bg-emerald-100 dark:bg-emerald-900/40 px-2 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                ✅ From OCR Documents
+              </div>
+            )}
+            <p className="text-sm leading-7 break-words whitespace-pre-wrap">
+              {translatedText || message.text}
             </p>
           </div>
-        </motion.footer>
+
+          {!isUser && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => onSpeak({ ...message, text: translatedText || message.text })}
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 dark:border-gray-700 px-2.5 py-1 text-xs text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-gray-800"
+              >
+                <RiVolumeUpLine className="w-3.5 h-3.5" />
+                Listen
+              </button>
+
+              {LANGUAGES.filter((item) => item.code !== message.language).map((item) => (
+                <button
+                  key={item.code}
+                  onClick={() => onTranslate(message.id, item.code, setTranslatedText)}
+                  disabled={translating === message.id}
+                  className="rounded-lg border border-gray-200 dark:border-gray-700 px-2.5 py-1 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {translating === message.id ? "Changing..." : `Change to ${item.label}`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {!isUser && message.sources?.length > 0 && (
+            <div className="mt-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-2">
+              <p className="text-xs font-semibold text-emerald-900 dark:text-emerald-300 mb-1">📄 Sources:</p>
+              <div className="flex flex-wrap gap-2">
+                {message.sources.slice(0, 5).map((source, idx) => (
+                  <span key={idx} className="inline-block text-xs bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded border border-emerald-200 dark:border-emerald-700">
+                    {source.source} <span className="text-emerald-600 dark:text-emerald-400">p.{source.page}</span>
+                  </span>
+                ))}
+                {message.sources.length > 5 && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                    +{message.sources.length - 5} more
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+    </motion.div>
+  );
+};
+
+export default function AssistantContent() {
+  const [messages, setMessages] = useState([
+    {
+      id: crypto.randomUUID(),
+      sender: "ai",
+      text: "السلام علیکم! فصل، کیڑے، بیماری، کھاد یا آبپاشی کے بارے میں سوال پوچھیں۔",
+      language: "ur",
+      createdAt: new Date().toISOString(),
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [inputLanguage, setInputLanguage] = useState("ur");
+  const [language, setLanguage] = useState("ur");
+  const [loading, setLoading] = useState(false);
+  const [translating, setTranslating] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+  const [savedSessions, setSavedSessions] = useState([]);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [error, setError] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const messagesEndRef = useRef(null);
+  const recognitionRef = useRef(null);
+
+  const aiReplyCount = useMemo(
+    () => messages.filter((message) => message.sender === "ai").length - 1,
+    [messages]
+  );
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = false;
+        
+        const langMap = { ur: "ur-PK", pa: "ur-PK", en: "en-US" };
+        recognitionRef.current.lang = langMap[inputLanguage] || "ur-PK";
+        
+        recognitionRef.current.onresult = (event) => {
+          let transcript = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          setInput(transcript);
+          setIsListening(false);
+        };
+        
+        recognitionRef.current.onerror = () => {
+          setIsListening(false);
+          setError("Voice input failed. Please try again.");
+        };
+        
+        recognitionRef.current.onend = () => {
+          setIsListening(false);
+        };
+      }
+    }
+  }, [inputLanguage]);
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem("token");
+    const savedUser = localStorage.getItem("user");
+    if (savedToken && savedUser) {
+      setToken(savedToken);
+      setUser(JSON.parse(savedUser));
+      getChatSessions(savedToken)
+        .then((data) => setSavedSessions(data.sessions || []))
+        .catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [messages, loading]);
+
+  useEffect(() => {
+    if (!user && aiReplyCount >= 2) {
+      setShowAuthModal(true);
+    }
+  }, [aiReplyCount, user]);
+
+  const persistMessages = async (nextMessages) => {
+    if (!token) return;
+    try {
+      const data = await saveChatSession({
+        token,
+        sessionId,
+        title: makeTitle(nextMessages),
+        language,
+        messages: nextMessages,
+      });
+      if (data.session?.id) {
+        setSessionId(data.session.id);
+      }
+    } catch (err) {
+      console.error("Failed to save chat session:", err);
+    }
+  };
+
+  const startNewChat = () => {
+    setMessages([
+      {
+        id: crypto.randomUUID(),
+        sender: "ai",
+        text: "السلام علیکم! فصل، کیڑے، بیماری، کھاد یا آبپاشی کے بارے میں سوال پوچھیں۔",
+        language: "ur",
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    setSessionId(null);
+    setInput("");
+    setLanguage("ur");
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return;
+
+    const userMessage = {
+      id: crypto.randomUUID(),
+      sender: "user",
+      text: input.trim(),
+      language: inputLanguage,
+      createdAt: new Date().toISOString(),
+    };
+    const pendingMessages = [...messages, userMessage];
+    setMessages(pendingMessages);
+    setInput("");
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await askRagAssistant({
+        question: userMessage.text,
+        language: inputLanguage,
+        chatHistory: pendingMessages,
+      });
+
+      const aiMessage = {
+        id: crypto.randomUUID(),
+        sender: "ai",
+        text: response.answer,
+        language: response.language,
+        sources: response.sources || [],
+        createdAt: new Date().toISOString(),
+      };
+      const nextMessages = [...pendingMessages, aiMessage];
+      setMessages(nextMessages);
+      setLanguage(response.language);
+      await persistMessages(nextMessages);
+    } catch (err) {
+      setError(err.message || "RAG assistant is unavailable. Start the RAG API on port 8001.");
+      setMessages([
+        ...pendingMessages,
+        {
+          id: crypto.randomUUID(),
+          sender: "ai",
+          text: "Sorry, I could not reach the agriculture knowledge base right now. Please make sure the RAG server is running.",
+          language: "en",
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTranslate = async (messageId, targetLanguage, setTranslatedText) => {
+    const message = messages.find((item) => item.id === messageId);
+    if (!message) return;
+
+    setTranslating(messageId);
+    setError("");
+    try {
+      const result = await translateAssistantText({
+        text: message.text,
+        language: targetLanguage,
+      });
+      setTranslatedText(result.text);
+    } catch (err) {
+      setError(err.message || "Translation failed.");
+    } finally {
+      setTranslating(null);
+    }
+  };
+
+  const speak = async (message) => {
+    setError("");
+    try {
+      const audioBlob = await speakText({
+        text: message.text,
+        language: message.language,
+      });
+
+      // Play audio using Web Audio API
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play();
+      
+      // Clean up
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+      };
+    } catch (err) {
+      setError(err.message || "Could not generate audio. Please try again.");
+    }
+  };
+
+  const toggleVoiceInput = () => {
+    if (!recognitionRef.current) {
+      setError("Voice input is not supported in your browser.");
+      return;
+    }
+    
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  const handleAuthSuccess = async (userData, userToken) => {
+    setUser(userData);
+    setToken(userToken);
+    setShowAuthModal(false);
+    try {
+      await saveChatSession({
+        token: userToken,
+        sessionId,
+        title: makeTitle(messages),
+        language,
+        messages,
+      });
+      const data = await getChatSessions(userToken);
+      setSavedSessions(data.sessions || []);
+    } catch (err) {
+      setError("Logged in, but chat history could not be saved yet.");
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-emerald-50 dark:bg-gray-950 transition-colors duration-300">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="mb-5 flex flex-col gap-4 rounded-2xl bg-white dark:bg-gray-900 border border-emerald-100 dark:border-gray-800 p-5 shadow-sm md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center">
+              <RiRobotLine className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                AgriSense RAG Assistant
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Ask from OCR agriculture PDFs in Urdu, Punjabi, or English
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={startNewChat}
+              className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              <RiAddLine className="w-4 h-4" />
+              New Chat
+            </button>
+            {!user && (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                Login to save
+              </button>
+            )}
+            {user && (
+              <span className="rounded-xl bg-emerald-100 dark:bg-emerald-900/40 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+                Saving for {user.name}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
+          <main className="flex h-[calc(100vh-250px)] min-h-[560px] flex-col rounded-2xl bg-white dark:bg-gray-900 border border-emerald-100 dark:border-gray-800 shadow-sm overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4">
+              {messages.map((message, index) => (
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  index={index}
+                  onSpeak={speak}
+                  onTranslate={handleTranslate}
+                  translating={translating}
+                />
+              ))}
+              {loading && (
+                <div className="text-sm text-gray-500 dark:text-gray-400 px-4 py-2">
+                  Searching OCR documents and asking LLM...
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {error && (
+              <div className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+                {error}
+              </div>
+            )}
+
+            <div className="border-t border-gray-100 dark:border-gray-800 p-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={inputLanguage}
+                    onChange={(e) => setInputLanguage(e.target.value)}
+                    className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-xs text-gray-800 dark:text-gray-100"
+                  >
+                    {LANGUAGES.map((item) => (
+                      <option key={item.code} value={item.code}>{item.label}</option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Input language</span>
+                </div>
+                
+                <div className="flex items-end gap-3">
+                  <textarea
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                    dir={getLanguage(inputLanguage).dir}
+                    rows={2}
+                    maxLength={800}
+                    disabled={loading}
+                    placeholder="اپنا سوال لکھیں... Type your farming question..."
+                    className="min-h-12 flex-1 resize-none rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={toggleVoiceInput}
+                      disabled={loading}
+                      className={`inline-flex items-center justify-center rounded-2xl px-3 py-3 text-sm font-semibold ${
+                        isListening
+                          ? "bg-red-600 text-white hover:bg-red-700"
+                          : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                      }`}
+                      title="Voice input"
+                    >
+                      <RiMicLine className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={sendMessage}
+                      disabled={loading || !input.trim()}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      <RiSendPlaneLine className="w-4 h-4" />
+                      Send
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+
+          <aside className="rounded-2xl bg-white dark:bg-gray-900 border border-emerald-100 dark:border-gray-800 p-4 shadow-sm">
+            <h2 className="font-semibold text-gray-900 dark:text-white">Saved Chats</h2>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Login after two replies to keep your chat history.
+            </p>
+            <div className="mt-4 space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto">
+              {savedSessions.length === 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No saved chats yet.</p>
+              )}
+              {savedSessions.map((session) => (
+                <div key={session.id} className="flex items-start gap-2">
+                  <button
+                    onClick={async () => {
+                      setSessionId(session.id);
+                      if (!token) return;
+                      try {
+                        const data = await getChatSession({ token, sessionId: session.id });
+                        if (data.session?.messages?.length) {
+                          setMessages(data.session.messages);
+                          setLanguage(data.session.language || "ur");
+                          setInputLanguage(data.session.language || "ur");
+                        }
+                      } catch (err) {
+                        setError("Could not load that saved chat.");
+                      }
+                    }}
+                    className="flex-1 rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-gray-800"
+                  >
+                    <span className="line-clamp-2">{session.title}</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={handleAuthSuccess}
+      />
     </div>
   );
 }

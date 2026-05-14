@@ -2,8 +2,12 @@
  * API utility functions for backend communication
  */
 
-// Backend API base URL - Update this to match your backend server
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const DISEASE_API_BASE_URL =
+  process.env.NEXT_PUBLIC_DISEASE_API_URL || "http://localhost:8000";
+const RAG_API_BASE_URL =
+  process.env.NEXT_PUBLIC_RAG_API_URL || "http://localhost:8000";
+const APP_API_BASE_URL =
+  process.env.NEXT_PUBLIC_APP_API_URL || "http://localhost:5000/api";
 
 /**
  * Predict plant disease from image
@@ -18,7 +22,7 @@ export async function predictDisease(imageFile, topK = 3) {
     formData.append("file", imageFile);
 
     // Make API request
-    const response = await fetch(`${API_BASE_URL}/predict?top_k=${topK}`, {
+    const response = await fetch(`${DISEASE_API_BASE_URL}/predict?top_k=${topK}`, {
       method: "POST",
       body: formData,
     });
@@ -48,7 +52,7 @@ export async function predictDisease(imageFile, topK = 3) {
 export async function getDiseaseInfo(diseaseName) {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/disease-info/${encodeURIComponent(diseaseName)}`
+      `${DISEASE_API_BASE_URL}/disease-info/${encodeURIComponent(diseaseName)}`
     );
 
     if (!response.ok) {
@@ -72,7 +76,7 @@ export async function getDiseaseInfo(diseaseName) {
  */
 export async function getDiseaseClasses() {
   try {
-    const response = await fetch(`${API_BASE_URL}/classes`);
+    const response = await fetch(`${DISEASE_API_BASE_URL}/classes`);
 
     if (!response.ok) {
       throw new Error(`API request failed with status ${response.status}`);
@@ -92,7 +96,7 @@ export async function getDiseaseClasses() {
  */
 export async function checkAPIHealth() {
   try {
-    const response = await fetch(`${API_BASE_URL}/health`);
+    const response = await fetch(`${DISEASE_API_BASE_URL}/health`);
 
     if (!response.ok) {
       throw new Error(`Health check failed with status ${response.status}`);
@@ -104,4 +108,93 @@ export async function checkAPIHealth() {
     console.error("Health check error:", error);
     throw error;
   }
+}
+
+export async function askRagAssistant({ question, language, chatHistory }) {
+  const response = await fetch(`${RAG_API_BASE_URL}/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question,
+      language,
+      chat_history: chatHistory || [],
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || `RAG request failed with status ${response.status}`);
+  }
+  return data;
+}
+
+export async function translateAssistantText({ text, language }) {
+  const response = await fetch(`${RAG_API_BASE_URL}/translate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, language }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || `Translation failed with status ${response.status}`);
+  }
+  return data;
+}
+
+export async function speakText({ text, language }) {
+  const response = await fetch(`${RAG_API_BASE_URL}/speak`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, language }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail || `Text-to-speech failed with status ${response.status}`);
+  }
+  
+  const audioBlob = await response.blob();
+  return audioBlob;
+}
+
+export async function saveChatSession({ token, sessionId, title, language, messages }) {
+  const response = await fetch(`${APP_API_BASE_URL}/chat-history`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ sessionId, title, language, messages }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || `Save chat failed with status ${response.status}`);
+  }
+  return data;
+}
+
+export async function getChatSessions(token) {
+  const response = await fetch(`${APP_API_BASE_URL}/chat-history`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || `Fetch chat history failed with status ${response.status}`);
+  }
+  return data;
+}
+
+export async function getChatSession({ token, sessionId }) {
+  const response = await fetch(`${APP_API_BASE_URL}/chat-history/${sessionId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || `Fetch chat failed with status ${response.status}`);
+  }
+  return data;
 }
