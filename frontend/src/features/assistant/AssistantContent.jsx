@@ -47,7 +47,7 @@ export const ChatMessage = ({
       className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}
     >
       <div className={`flex gap-3 max-w-[88%] ${isUser ? "flex-row-reverse" : "flex-row"}`}>
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shadow-sm ${
             isUser ? "bg-emerald-600" : hasReliableSources ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-yellow-100 dark:bg-yellow-900/40"
           }`}>
@@ -80,7 +80,7 @@ export const ChatMessage = ({
                 ✅ From OCR Documents
               </div>
             )}
-            <p className="text-sm leading-7 break-words whitespace-pre-wrap">
+            <p className="text-sm leading-7 wrap-break-words whitespace-pre-wrap">
               {translatedText || message.text}
             </p>
           </div>
@@ -445,7 +445,7 @@ export default function AssistantContent() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
-          <main className="flex h-[calc(100vh-250px)] min-h-[560px] flex-col rounded-2xl bg-white dark:bg-gray-900 border border-emerald-100 dark:border-gray-800 shadow-sm overflow-hidden">
+          <main className="flex h-[calc(100vh-250px)] min-h-140 flex-col rounded-2xl bg-white dark:bg-gray-900 border border-emerald-100 dark:border-gray-800 shadow-sm overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4">
               {messages.map((message, index) => (
                 <ChatMessage
@@ -606,7 +606,7 @@ export default function AssistantContent() {
                       handleDeleteChat(session.id);
                     }}
                     title="Delete this chat"
-                    className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    className="shrink-0 rounded-lg p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20"
                   >
                     <RiDeleteBin2Line className="w-4 h-4" />
                   </button>
