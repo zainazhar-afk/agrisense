@@ -5,7 +5,7 @@ import os
 from typing import Literal, Optional
 from io import BytesIO
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -40,12 +40,14 @@ app.add_middleware(
 vectorstore = None
 llm = None
 elevenlabs_client = None
+elevenlabs_voice_ids = {}
 
 # ElevenLabs voice mapping for languages
+# Using available voice IDs from the account
 VOICE_MAPPING = {
-    "en": "Bella",      # English
-    "ur": "Domi",       # Urdu (close match)
-    "pa": "Domi",       # Punjabi (close match)
+    "en": "EXAVITQu4vr4xnSDxMaL",    # Bella - English
+    "ur": "nPczCjzI2devNBz1zQrb",    # Brian - Urdu (fallback)
+    "pa": "nPczCjzI2devNBz1zQrb",    # Brian - Punjabi (fallback)
 }
 
 class AskRequest(BaseModel):
@@ -102,9 +104,41 @@ def format_history(history):
     return "\n".join(lines)
 
 
+def normalize_language_code(value: Optional[str], default: str = "ur") -> str:
+    if not value:
+        return default
+
+    normalized = str(value).strip().lower()
+    aliases = {
+        "english": "en",
+        "urdu": "ur",
+        "punjabi": "pa",
+        "shahmukhi": "pa",
+        "en": "en",
+        "ur": "ur",
+        "pa": "pa",
+    }
+    return aliases.get(normalized, default)
+
+
+async def extract_payload(request: Request) -> dict:
+    try:
+        payload = await request.json()
+        if isinstance(payload, dict):
+            return payload
+    except Exception:
+        pass
+
+    try:
+        form = await request.form()
+        return dict(form)
+    except Exception:
+        return {}
+
+
 @app.on_event("startup")
 async def startup():
-    global vectorstore, llm
+    global vectorstore, llm, elevenlabs_client, elevenlabs_voice_ids
 
     if not config.GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is missing. Add it to rag_system/.env")
@@ -136,15 +170,17 @@ async def startup():
     )
     
     # Initialize ElevenLabs client
-    global elevenlabs_client
     if config.ELEVENLABS_API_KEY:
         elevenlabs_client = ElevenLabs(api_key=config.ELEVENLABS_API_KEY)
+        # Note: We use voice names directly instead of fetching IDs
+        # because the API key may not have voices_read permission
         print("✅ ElevenLabs Text-to-Speech initialized")
     else:
         print("⚠️ ELEVENLABS_API_KEY not found. Text-to-speech will be unavailable.")
 
 
 @app.get("/health")
+@app.get("/api/rag/health")
 async def health():
     return {
         "status": "ok",
@@ -155,6 +191,7 @@ async def health():
 
 
 @app.post("/ask", response_model=AskResponse)
+@app.post("/api/rag/ask", response_model=AskResponse)
 async def ask(request: AskRequest):
     if vectorstore is None or llm is None:
         raise HTTPException(status_code=503, detail="RAG service is not ready")
@@ -208,27 +245,49 @@ async def ask(request: AskRequest):
 
 
 @app.post("/translate")
-async def translate(request: TranslateRequest):
+@app.post("/api/rag/translate")
+async def translate(request: Request):
     """Translate text using googletrans library (fast, free, no LLM needed)"""
     try:
+        payload = await extract_payload(request)
+
+        text = (
+            payload.get("text")
+            or payload.get("message")
+            or payload.get("content")
+            or payload.get("sourceText")
+        )
+        language = normalize_language_code(
+            payload.get("language")
+            or payload.get("languageCode")
+            or payload.get("targetLanguage")
+            or payload.get("to")
+        )
+
+        if not text:
+            raise HTTPException(status_code=422, detail="Field 'text' is required")
+
         # Map language codes to googletrans codes
         lang_map = {"ur": "ur", "pa": "pa", "en": "en"}
-        target_lang = lang_map.get(request.language, "ur")
+        target_lang = lang_map.get(language, "ur")
         
         translator = Translator()
-        result = translator.translate(request.text, dest_language=target_lang)
+        result = await translator.translate(text, dest=target_lang)
         
         return {
             "success": True,
-            "language": request.language,
+            "language": language,
             "text": result.text,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
 
 
 @app.post("/speak")
-async def speak(request: TextToSpeechRequest):
+@app.post("/api/rag/speak")
+async def speak(request: Request):
     """Convert text to speech using ElevenLabs API"""
     if elevenlabs_client is None:
         raise HTTPException(
@@ -237,14 +296,22 @@ async def speak(request: TextToSpeechRequest):
         )
     
     try:
-        # Get appropriate voice for language
-        voice_name = VOICE_MAPPING.get(request.language, "Bella")
-        
-        # Generate speech using ElevenLabs
-        audio = elevenlabs_client.generate(
-            text=request.text,
-            voice=voice_name,
-            model="eleven_monolingual_v1"
+        payload = await extract_payload(request)
+        text = payload.get("text") or payload.get("message") or payload.get("content")
+        language = normalize_language_code(payload.get("language"), default="ur")
+
+        if not text:
+            raise HTTPException(status_code=422, detail="Field 'text' is required")
+
+        # Get appropriate voice ID for language
+        voice_id = VOICE_MAPPING.get(language, "EXAVITQu4vr4xnSDxMaL")  # Default to Bella
+
+        # Generate speech using ElevenLabs with voice_id
+        audio = elevenlabs_client.text_to_speech.convert(
+            voice_id=voice_id,
+            text=text,
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128",
         )
         
         # Convert generator to bytes
@@ -258,12 +325,11 @@ async def speak(request: TextToSpeechRequest):
             media_type="audio/mpeg",
             headers={"Content-Disposition": "attachment; filename=speech.mp3"}
         )
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Text-to-speech error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Text-to-speech failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Text-to-speech error: {str(e)}")
 
 
 if __name__ == "__main__":
