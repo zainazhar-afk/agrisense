@@ -3,6 +3,7 @@ FastAPI application for cotton leaf disease detection.
 """
 import io
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List, Optional
 
@@ -16,12 +17,35 @@ sys.path.append(str(Path(__file__).parent.parent))
 from src.inference import DiseasePredictor
 
 
+predictor = None
+startup_error = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize model at startup without crashing the API on missing artifacts."""
+    del app
+    global predictor, startup_error
+    try:
+        print("Initializing cotton leaf disease detection model...")
+        predictor = DiseasePredictor()
+        startup_error = None
+        print("Model loaded successfully")
+    except Exception as e:
+        predictor = None
+        startup_error = str(e)
+        print(f"Warning: model failed to load: {startup_error}")
+
+    yield
+
+
 app = FastAPI(
     title="AgriSense AI - Cotton Leaf Disease Detection API",
     description="AI-powered cotton leaf disease detection using an EfficientNetB3 ONNX model",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -31,9 +55,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-predictor = None
-
 
 class PredictionResponse(BaseModel):
     """Response model for disease prediction."""
@@ -51,19 +72,6 @@ class HealthResponse(BaseModel):
     model_loaded: bool
     num_classes: int
     model_format: str
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize the model on startup."""
-    global predictor
-    try:
-        print("Initializing cotton leaf disease detection model...")
-        predictor = DiseasePredictor()
-        print("Model loaded successfully")
-    except Exception as e:
-        print(f"Error loading model: {e}")
-        raise
 
 
 @app.get("/", response_model=dict)
@@ -87,9 +95,13 @@ async def root():
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
+    message = "API is running"
+    if predictor is None and startup_error:
+        message = f"API is running, but model is not loaded: {startup_error}"
+
     return {
-        "status": "healthy",
-        "message": "API is running",
+        "status": "healthy" if predictor is not None else "degraded",
+        "message": message,
         "model_loaded": predictor is not None,
         "num_classes": len(predictor.class_names) if predictor else 0,
         "model_format": "ONNX",
