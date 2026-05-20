@@ -77,15 +77,6 @@ class AskResponse(BaseModel):
 
 
 def create_llm():
-    if config.GEMINI_API_KEY:
-        from langchain_google_genai import ChatGoogleGenerativeAI
-
-        return ChatGoogleGenerativeAI(
-            model=config.GEMINI_MODEL,
-            google_api_key=config.GEMINI_API_KEY,
-            temperature=0.2,
-        )
-
     if config.OPENAI_API_KEY:
         from langchain_openai import ChatOpenAI
 
@@ -96,7 +87,7 @@ def create_llm():
             temperature=0.2,
         )
 
-    raise RuntimeError("No LLM API key found. Add GEMINI_API_KEY or OPENAI_API_KEY to rag_system/.env")
+    raise RuntimeError("No LLM API key found. Add OPENAI_API_KEY to rag_system/.env")
 
 
 def get_language_name(code: str):
@@ -198,7 +189,9 @@ def initialize_rag():
 
         if not config.VECTORSTORE_DIR.exists():
             raise RuntimeError(
-                f"FAISS index not found at {config.VECTORSTORE_DIR}. Run `python ingest.py` first."
+                f"FAISS index not found at {config.VECTORSTORE_DIR}. "
+                "For local deployment: Run `python ingest.py` first. "
+                "For Render deployment: Ensure storage/faiss_index is committed to Git or use a build script."
             )
 
         embeddings = HuggingFaceEmbeddings(
@@ -268,7 +261,7 @@ async def health():
         "llm_loaded": llm is not None,
         "rag_loading": rag_loading,
         "startup_error": startup_error,
-        "model": config.GEMINI_MODEL if config.GEMINI_API_KEY else os.getenv("OPENAI_MODEL", "LongCat-Flash-Chat"),
+        "model": os.getenv("OPENAI_MODEL", "LongCat-Flash-Chat"),
         "languages": config.SUPPORTED_LANGUAGES,
     }
 

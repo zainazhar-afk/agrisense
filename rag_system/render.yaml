@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: agrisense-rag
+    env: python
+    plan: starter
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: RAG_DATA_DIR
+        value: ./storage
+      - key: RAG_VECTORSTORE_DIR
+        value: ./storage/faiss_index
+      - key: RAG_OCR_OUTPUT
+        value: ./storage/ocr_pages.jsonl
+      - key: OPENAI_MODEL
+        value: LongCat-Flash-Chat
+      - key: OPENAI_BASE_URL
+        value: https://api.longcat.chat/openai
+

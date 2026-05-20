@@ -13,8 +13,6 @@ OCR_OUTPUT_PATH = BASE_DIR / os.getenv("RAG_OCR_OUTPUT", "storage/ocr_pages.json
 VECTORSTORE_DIR = BASE_DIR / os.getenv("RAG_VECTORSTORE_DIR", "storage/faiss_index")
 
 EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "900"))
