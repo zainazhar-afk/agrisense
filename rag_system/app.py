@@ -2,21 +2,16 @@
 FastAPI RAG service for AgriSense agricultural assistant.
 """
 import os
+import inspect
+import asyncio
 from typing import Literal, Optional
 from io import BytesIO
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from googletrans import Translator
-from elevenlabs.client import ElevenLabs
 
 import config 
 
@@ -39,6 +34,8 @@ app.add_middleware(
 
 vectorstore = None
 llm = None
+startup_error = None
+rag_loading = False
 elevenlabs_client = None
 elevenlabs_voice_ids = {}
 
@@ -53,7 +50,7 @@ VOICE_MAPPING = {
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1)
     language: Language = "ur"
-    chat_history: list[dict] = []
+    chat_history: list[dict] = Field(default_factory=list)
 
 
 class TranslateRequest(BaseModel):
@@ -77,6 +74,29 @@ class AskResponse(BaseModel):
     answer: str
     language: Language
     sources: list[Source]
+
+
+def create_llm():
+    if config.GEMINI_API_KEY:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+
+        return ChatGoogleGenerativeAI(
+            model=config.GEMINI_MODEL,
+            google_api_key=config.GEMINI_API_KEY,
+            temperature=0.2,
+        )
+
+    if config.OPENAI_API_KEY:
+        from langchain_openai import ChatOpenAI
+
+        return ChatOpenAI(
+            model_name=os.getenv("OPENAI_MODEL", "LongCat-Flash-Chat"),
+            api_key=config.OPENAI_API_KEY,
+            base_url=os.getenv("OPENAI_BASE_URL", "https://api.longcat.chat/openai"),
+            temperature=0.2,
+        )
+
+    raise RuntimeError("No LLM API key found. Add GEMINI_API_KEY or OPENAI_API_KEY to rag_system/.env")
 
 
 def get_language_name(code: str):
@@ -136,41 +156,97 @@ async def extract_payload(request: Request) -> dict:
         return {}
 
 
+async def translate_text(text: str, language: str) -> str:
+    from googletrans import Translator
+
+    target_lang = {"ur": "ur", "pa": "pa", "en": "en"}.get(language, "ur")
+    translator = Translator()
+    result = translator.translate(text, dest=target_lang)
+    if inspect.isawaitable(result):
+        result = await result
+    return result.text
+
+
+def translate_text_with_llm(text: str, language: str) -> str:
+    from langchain_core.prompts import ChatPromptTemplate
+
+    language_name = get_language_name(language)
+    translation_llm = llm or create_llm()
+    prompt = ChatPromptTemplate.from_messages([
+        (
+            "system",
+            "Translate the user's text to {language}. Return only the translated text. "
+            "For Punjabi, use Shahmukhi script.",
+        ),
+        ("human", "{text}"),
+    ])
+    result = (prompt | translation_llm).invoke({
+        "language": language_name,
+        "text": text,
+    })
+    return result.content
+
+
+def initialize_rag():
+    global vectorstore, llm, startup_error, rag_loading
+
+    rag_loading = True
+    startup_error = None
+    try:
+        from langchain_huggingface import HuggingFaceEmbeddings
+        from langchain_community.vectorstores import FAISS
+
+        if not config.VECTORSTORE_DIR.exists():
+            raise RuntimeError(
+                f"FAISS index not found at {config.VECTORSTORE_DIR}. Run `python ingest.py` first."
+            )
+
+        embeddings = HuggingFaceEmbeddings(
+            model_name=config.EMBEDDING_MODEL_NAME,
+            encode_kwargs={"normalize_embeddings": True},
+        )
+        vectorstore = FAISS.load_local(
+            str(config.VECTORSTORE_DIR),
+            embeddings,
+            allow_dangerous_deserialization=True,
+        )
+        llm = create_llm()
+        print("RAG initialization complete")
+    except Exception as exc:
+        startup_error = str(exc)
+        print(f"RAG initialization failed: {startup_error}")
+    finally:
+        rag_loading = False
+
+
+def initialize_tts():
+    global elevenlabs_client
+
+    if config.ELEVENLABS_API_KEY:
+        try:
+            from elevenlabs.client import ElevenLabs
+
+            elevenlabs_client = ElevenLabs(api_key=config.ELEVENLABS_API_KEY)
+            print("ElevenLabs Text-to-Speech initialized")
+        except Exception as exc:
+            elevenlabs_client = None
+            print(f"Text-to-speech initialization failed: {exc}")
+    else:
+        print("ELEVENLABS_API_KEY not found. Text-to-speech will be unavailable.")
+
+
 @app.on_event("startup")
 async def startup():
-    global vectorstore, llm, elevenlabs_client, elevenlabs_voice_ids
+    global elevenlabs_client, elevenlabs_voice_ids
 
-    if not config.GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY is missing. Add it to rag_system/.env")
-
-    if not config.VECTORSTORE_DIR.exists():
-        raise RuntimeError(
-            f"FAISS index not found at {config.VECTORSTORE_DIR}. Run `python ingest.py` first."
-        )
-
-    embeddings = HuggingFaceEmbeddings(
-        model_name=config.EMBEDDING_MODEL_NAME,
-        encode_kwargs={"normalize_embeddings": True},
-    )
-    vectorstore = FAISS.load_local(
-        str(config.VECTORSTORE_DIR),
-        embeddings,
-        allow_dangerous_deserialization=True,
-    )
-    # llm = ChatGoogleGenerativeAI(
-    #     model=config.GEMINI_MODEL,
-    #     google_api_key=config.GEMINI_API_KEY,
-    #     temperature=0.2,
-    # )
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    llm = ChatOpenAI(
-        model_name="LongCat-Flash-Chat",
-        api_key=OPENAI_API_KEY,
-        base_url="https://api.longcat.chat/openai"
-    )
+    asyncio.create_task(asyncio.to_thread(initialize_rag))
+    asyncio.create_task(asyncio.to_thread(initialize_tts))
+    return
     
     # Initialize ElevenLabs client
     if config.ELEVENLABS_API_KEY:
+        from elevenlabs.client import ElevenLabs
+
         elevenlabs_client = ElevenLabs(api_key=config.ELEVENLABS_API_KEY)
         # Note: We use voice names directly instead of fetching IDs
         # because the API key may not have voices_read permission
@@ -182,10 +258,17 @@ async def startup():
 @app.get("/health")
 @app.get("/api/rag/health")
 async def health():
+    status = "ok" if vectorstore is not None and llm is not None else "degraded"
+    if rag_loading:
+        status = "loading"
+
     return {
-        "status": "ok",
+        "status": status,
         "index_loaded": vectorstore is not None,
-        "model": config.GEMINI_MODEL,
+        "llm_loaded": llm is not None,
+        "rag_loading": rag_loading,
+        "startup_error": startup_error,
+        "model": config.GEMINI_MODEL if config.GEMINI_API_KEY else os.getenv("OPENAI_MODEL", "LongCat-Flash-Chat"),
         "languages": config.SUPPORTED_LANGUAGES,
     }
 
@@ -194,7 +277,14 @@ async def health():
 @app.post("/api/rag/ask", response_model=AskResponse)
 async def ask(request: AskRequest):
     if vectorstore is None or llm is None:
-        raise HTTPException(status_code=503, detail="RAG service is not ready")
+        detail = "RAG service is not ready"
+        if rag_loading:
+            detail = "RAG service is still loading the FAISS index and embedding model"
+        if startup_error:
+            detail = f"{detail}: {startup_error}"
+        raise HTTPException(status_code=503, detail=detail)
+
+    from langchain_core.prompts import ChatPromptTemplate
 
     docs = vectorstore.similarity_search(request.question, k=5)
     context = format_docs(docs)
@@ -267,17 +357,18 @@ async def translate(request: Request):
         if not text:
             raise HTTPException(status_code=422, detail="Field 'text' is required")
 
-        # Map language codes to googletrans codes
-        lang_map = {"ur": "ur", "pa": "pa", "en": "en"}
-        target_lang = lang_map.get(language, "ur")
-        
-        translator = Translator()
-        result = await translator.translate(text, dest=target_lang)
+        try:
+            translated = await asyncio.wait_for(translate_text(text, language), timeout=8)
+        except Exception:
+            translated = await asyncio.wait_for(
+                asyncio.to_thread(translate_text_with_llm, text, language),
+                timeout=30,
+            )
         
         return {
             "success": True,
             "language": language,
-            "text": result.text,
+            "text": translated,
         }
     except HTTPException:
         raise
