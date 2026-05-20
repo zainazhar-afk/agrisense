@@ -129,7 +129,7 @@ export async function askRagAssistant({ question, language, chatHistory }) {
 }
 
 export async function translateAssistantText({ text, language }) {
-  const response = await fetch(`${RAG_API_BASE_URL}/translate`, {
+  const response = await fetch(`${RAG_API_BASE_URL}/translate`, { 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, language }),

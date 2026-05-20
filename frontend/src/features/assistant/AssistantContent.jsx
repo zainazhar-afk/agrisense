@@ -143,7 +143,7 @@ export default function AssistantContent() {
   ]);
   const [input, setInput] = useState("");
   const [inputLanguage, setInputLanguage] = useState("ur");
-  const [inputTargetLanguage, setInputTargetLanguage] = useState("en");
+  const [inputTargetLanguage, setInputTargetLanguage] = useState("ur");
   const [language, setLanguage] = useState("ur");
   const [loading, setLoading] = useState(false);
   const [translating, setTranslating] = useState(null);
@@ -249,6 +249,8 @@ export default function AssistantContent() {
     setSessionId(null);
     setInput("");
     setLanguage("ur");
+    setInputLanguage("ur");
+    setInputTargetLanguage("ur");
   };
 
   const sendMessage = async () => {
@@ -268,10 +270,27 @@ export default function AssistantContent() {
     setError("");
 
     try {
+      const llmLanguage = inputTargetLanguage || inputLanguage;
+      let questionForRag = userMessage.text;
+
+      if (inputLanguage !== llmLanguage) {
+        const translated = await translateAssistantText({
+          text: userMessage.text,
+          language: llmLanguage,
+        });
+        questionForRag = translated.text || userMessage.text;
+      }
+
+      const ragHistory = pendingMessages.map((message) =>
+        message.id === userMessage.id
+          ? { ...message, text: questionForRag, language: llmLanguage }
+          : message
+      );
+
       const response = await askRagAssistant({
-        question: userMessage.text,
-        language: inputLanguage,
-        chatHistory: pendingMessages,
+        question: questionForRag,
+        language: llmLanguage,
+        chatHistory: ragHistory,
       });
 
       const aiMessage = {
@@ -476,7 +495,10 @@ export default function AssistantContent() {
                 <div className="flex items-center gap-2">
                   <select
                     value={inputLanguage}
-                    onChange={(e) => setInputLanguage(e.target.value)}
+                    onChange={(e) => {
+                      setInputLanguage(e.target.value);
+                      setInputTargetLanguage(e.target.value);
+                    }}
                     className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-xs text-gray-800 dark:text-gray-100"
                   >
                     {LANGUAGES.map((item) => (
@@ -489,7 +511,7 @@ export default function AssistantContent() {
                     value={inputTargetLanguage}
                     onChange={(e) => setInputTargetLanguage(e.target.value)}
                     className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-xs text-gray-800 dark:text-gray-100"
-                    title="Translate input to"
+                    title="Send to LLM as"
                   >
                     {LANGUAGES.map((item) => (
                       <option key={item.code} value={item.code}>{item.label}</option>
@@ -516,10 +538,10 @@ export default function AssistantContent() {
                     disabled={inputTranslating || !input.trim()}
                     className="rounded-lg border border-gray-200 dark:border-gray-700 px-2.5 py-1 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
                   >
-                    {inputTranslating ? "Translating..." : "Translate"}
+                    {inputTranslating ? "Translating..." : "Translate now"}
                   </button>
 
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Translate before sending</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Send to LLM as</span>
                 </div>
                 
                 <div className="flex items-end gap-3">
@@ -591,6 +613,7 @@ export default function AssistantContent() {
                           setMessages(messagesWithIds);
                           setLanguage(data.session.language || "ur");
                           setInputLanguage(data.session.language || "ur");
+                          setInputTargetLanguage(data.session.language || "ur");
                         }
                       } catch (err) {
                         setError("Could not load that saved chat.");
