@@ -240,9 +240,10 @@ def initialize_tts():
 async def startup():
     global elevenlabs_client, elevenlabs_voice_ids
 
-    asyncio.create_task(asyncio.to_thread(initialize_rag))
+    # Wait for RAG to initialize before app becomes ready
+    await asyncio.to_thread(initialize_rag)
+    # Initialize TTS in background (not critical for app readiness)
     asyncio.create_task(asyncio.to_thread(initialize_tts))
-    return
     
     # Initialize ElevenLabs client
     if config.ELEVENLABS_API_KEY:

@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { RiPlantLine } from "react-icons/ri";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/common/Footer";
-
+import { Analytics } from "@vercel/analytics/next"
 // Improved font choices
 const inter = Inter({
   variable: "--font-inter",
@@ -87,7 +87,7 @@ export default function RootLayout({ children }) {
         >
           {children}
         </motion.main>
-
+        <Analytics />
         {/* Footer Component */}
         <Footer />
       </body>
