@@ -3,10 +3,6 @@
 # Core inference runtime
 onnxruntime
 
-# Training / model export utilities
-tensorflow
-keras
-
 # Image processing
 opencv-python
 pillow
