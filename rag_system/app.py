@@ -230,7 +230,7 @@ def initialize_rag():
         print("🔄 Starting RAG initialization...")
         from langchain_community.vectorstores import FAISS
 
-        print(f"📁 Checking FAISS index at: {config.VECTORSTORE_DIR}")
+        print(f"Checking FAISS index at: {config.VECTORSTORE_DIR}")
         if not config.VECTORSTORE_DIR.exists():
             raise RuntimeError(
                 f"FAISS index not found at {config.VECTORSTORE_DIR}. "
@@ -238,7 +238,7 @@ def initialize_rag():
                 "For Render deployment: Ensure storage/faiss_index is committed to Git or use a build script."
             )
 
-        print("✅ FAISS directory found. Loading embeddings...")
+        print("FAISS directory found. Loading embeddings...")
         from langchain_huggingface import HuggingFaceEmbeddings
         # Load with lower resource usage
         embeddings = HuggingFaceEmbeddings(
@@ -246,18 +246,18 @@ def initialize_rag():
             encode_kwargs={"normalize_embeddings": True},
             model_kwargs={"device": "cpu"},  # Explicitly use CPU
         )
-        print("✅ Embeddings loaded. Loading FAISS index...")
+        print("Embeddings loaded. Loading FAISS index...")
         vectorstore = FAISS.load_local(
             str(config.VECTORSTORE_DIR),
             embeddings,
             allow_dangerous_deserialization=True,
         )
-        print("✅ FAISS index loaded. Initializing LLM...")
+        print("FAISS index loaded. Initializing LLM...")
         llm = create_llm()
-        print("✅ RAG initialization complete!")
+        print("RAG initialization complete!")
     except Exception as exc:
         startup_error = str(exc)
-        print(f"❌ RAG initialization failed: {startup_error}")
+        print(f"RAG initialization failed: {startup_error}")
     finally:
         rag_loading = False
 
@@ -294,9 +294,9 @@ async def startup():
         elevenlabs_client = ElevenLabs(api_key=config.ELEVENLABS_API_KEY)
         # Note: We use voice names directly instead of fetching IDs
         # because the API key may not have voices_read permission
-        print("✅ ElevenLabs Text-to-Speech initialized")
+        print("ElevenLabs Text-to-Speech initialized")
     else:
-        print("⚠️ ELEVENLABS_API_KEY not found. Text-to-speech will be unavailable.")
+        print("ELEVENLABS_API_KEY not found. Text-to-speech will be unavailable.")
 
 
 @app.get("/health")
@@ -423,13 +423,7 @@ async def translate(request: Request):
 @app.post("/speak")
 @app.post("/api/rag/speak")
 async def speak(request: Request):
-    """Convert text to speech using ElevenLabs API"""
-    if elevenlabs_client is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Text-to-Speech service is not available. ELEVENLABS_API_KEY not configured."
-        )
-    
+    """Convert text to speech using ElevenLabs API with pyttsx3 fallback"""
     try:
         payload = await extract_payload(request)
         text = payload.get("text") or payload.get("message") or payload.get("content")
@@ -438,28 +432,60 @@ async def speak(request: Request):
         if not text:
             raise HTTPException(status_code=422, detail="Field 'text' is required")
 
-        # Get appropriate voice ID for language
-        voice_id = VOICE_MAPPING.get(language, "EXAVITQu4vr4xnSDxMaL")  # Default to Bella
-
-        # Generate speech using ElevenLabs with voice_id
-        audio = elevenlabs_client.text_to_speech.convert(
-            voice_id=voice_id,
-            text=text,
-            model_id="eleven_multilingual_v2",
-            output_format="mp3_44100_128",
-        )
+        # Try ElevenLabs first
+        if elevenlabs_client is not None:
+            try:
+                voice_id = VOICE_MAPPING.get(language, "EXAVITQu4vr4xnSDxMaL")
+                audio = elevenlabs_client.text_to_speech.convert(
+                    voice_id=voice_id,
+                    text=text,
+                    model_id="eleven_multilingual_v2",
+                    output_format="mp3_22050_32",
+                )
+                audio_bytes = BytesIO()
+                for chunk in audio:
+                    audio_bytes.write(chunk)
+                audio_bytes.seek(0)
+                
+                return StreamingResponse(
+                    iter([audio_bytes.getvalue()]),
+                    media_type="audio/mpeg",
+                    headers={"Content-Disposition": "inline"}
+                )
+            except Exception as e:
+                if "quota_exceeded" in str(e).lower():
+                    print(f"⚠️  ElevenLabs quota exceeded, falling back to local TTS")
+                else:
+                    print(f"⚠️  ElevenLabs error: {str(e)}, falling back to local TTS")
         
-        # Convert generator to bytes
-        audio_bytes = BytesIO()
-        for chunk in audio:
-            audio_bytes.write(chunk)
-        audio_bytes.seek(0)
+        # Fallback to pyttsx3 (free, local TTS)
+        import pyttsx3
+        import tempfile
         
-        return StreamingResponse(
-            iter([audio_bytes.getvalue()]),
-            media_type="audio/mpeg",
-            headers={"Content-Disposition": "attachment; filename=speech.mp3"}
-        )
+        engine = pyttsx3.init()
+        engine.setProperty('rate', 150)
+        
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+            tmp_path = tmp.name
+        
+        try:
+            engine.save_to_file(text, tmp_path)
+            engine.runAndWait()
+            
+            with open(tmp_path, 'rb') as f:
+                audio_data = f.read()
+            
+            os.unlink(tmp_path)
+            
+            return StreamingResponse(
+                iter([audio_data]),
+                media_type="audio/wav",
+                headers={"Content-Disposition": "inline"}
+            )
+        except Exception as fallback_error:
+            print(f"❌ Local TTS error: {str(fallback_error)}")
+            raise HTTPException(status_code=500, detail=f"Text-to-speech error: {str(fallback_error)}")
+            
     except HTTPException:
         raise
     except Exception as e:
