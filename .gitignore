@@ -62,6 +62,7 @@ tensorboard_logs/
 
 # Environment
 .env
+.env.example
 .envrc
 rag_system/.env
 rag_system/.venv/

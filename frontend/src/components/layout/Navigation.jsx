@@ -10,13 +10,10 @@ import {
   HiUserGroup,
   HiHome,
 } from "react-icons/hi";
-import { RiPlantLine } from "react-icons/ri";
 
 const navItems = [
   { href: "/", label: "Home", icon: HiHome },
-  { href: "/dashboard", label: "Dashboard", icon: HiChartBar },
-  { href: "/disease-detection", label: "Disease Detection", icon: HiCamera },
-  { href: "/soil-monitor", label: "Soil Monitor", icon: RiPlantLine },
+  { href: "/disease-detection", label: "Disease Lab", icon: HiCamera },
   { href: "/assistant", label: "AI Assistant", icon: HiChatAlt2 },
   { href: "/social", label: "Community", icon: HiUserGroup },
 ];

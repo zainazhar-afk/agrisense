@@ -1,4 +1,4 @@
-import { HomeContent } from "@/features/home";
+import  HomeContent  from "@/features/home/HomeContent";
 
 export const metadata = {
   title: "AgriSense AI - Smart Farming Solutions",
