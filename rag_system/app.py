@@ -457,32 +457,32 @@ async def speak(request: Request):
                 else:
                     print(f"⚠️  ElevenLabs error: {str(e)}, falling back to local TTS")
         
-        # Fallback to pyttsx3 (free, local TTS)
-        import pyttsx3
-        import tempfile
-        
-        engine = pyttsx3.init()
-        engine.setProperty('rate', 150)
-        
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
-            tmp_path = tmp.name
+        # Fallback to gTTS (free, cloud-based TTS)
+        from gtts import gTTS
         
         try:
-            engine.save_to_file(text, tmp_path)
-            engine.runAndWait()
+            # Map language codes for gTTS
+            lang_map = {
+                'en': 'en',
+                'ur': 'ur',
+                'pa': 'pa',
+            }
+            gtts_lang = lang_map.get(language, 'ur')
             
-            with open(tmp_path, 'rb') as f:
-                audio_data = f.read()
-            
-            os.unlink(tmp_path)
+            # Generate speech using gTTS
+            tts = gTTS(text=text, lang=gtts_lang, slow=False)
+            audio_bytes = BytesIO()
+            tts.write_to_fp(audio_bytes)
+            audio_bytes.seek(0)
+            audio_data = audio_bytes.getvalue()
             
             return StreamingResponse(
                 iter([audio_data]),
-                media_type="audio/wav",
+                media_type="audio/mpeg",
                 headers={"Content-Disposition": "inline"}
             )
         except Exception as fallback_error:
-            print(f"❌ Local TTS error: {str(fallback_error)}")
+            print(f"❌ gTTS error: {str(fallback_error)}")
             raise HTTPException(status_code=500, detail=f"Text-to-speech error: {str(fallback_error)}")
             
     except HTTPException:
