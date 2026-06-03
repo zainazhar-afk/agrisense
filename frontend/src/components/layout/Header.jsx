@@ -19,6 +19,7 @@ import {
   Scan,
   ArrowUpRight
 } from "lucide-react";
+import Image from "next/image";
 
 // ============================================================================
 // CUSTOM CSS FOR CLAYMORPHISM & ANIMATIONS
@@ -256,14 +257,22 @@ export default function Header() {
               transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
             >
               <Link href="/" className="flex items-center gap-3 group">
-                <motion.div
+               <Image
+                    src="/appLogo.png"
+                    alt="AgriSense Logo"
+                    width={80}
+                    height={80}
+                    className="w-15 h-15 text-white"
+                  />
+                {/* <motion.div
                   whileHover={{ rotate: 360, scale: 1.1 }}
                   transition={{ duration: 0.6, type: "spring" }}
-                  className="relative w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center clay-button"
+                  className="relative w-10 h-10 rounded-2xl bg-linear-to-br from-emerald-500 to-teal-600 flex items-center justify-center clay-button"
                 >
-                  <Leaf className="w-5 h-5 text-white" />
-                  <div className="absolute inset-0 rounded-2xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </motion.div>
+                  {/* <Leaf className="w-5 h-5 text-white" /> */}
+                 
+                  {/* <div className="absolute inset-0 rounded-2xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" /> */}
+                {/* </motion.div> */} 
                 <div className="flex flex-col">
                   <span className="text-lg font-bold gradient-text tracking-tight">
                     AgriSense

@@ -5,7 +5,7 @@ import { motion, AnimatePresence, useScroll, useTransform, useSpring, useInView 
 import AuthModal from "@/components/AuthModal";
 import { uploadToCloudinary } from "@/utils/cloudinary";
 
-const API_URL = process.env.NEXT_PUBLIC_APP_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const API_URL = process.env.NEXT_PUBLIC_APP_API_URL || process.env.NEXT_PUBLIC_API_URL;
 
 // ============================================================================
 // UTILITY FUNCTIONS
