@@ -2,7 +2,7 @@
 // AgriSense AI - Central Export Hub
 // ==========================================
 // Import everything from this file using the @ alias
-// Example: import { Card, Button, DashboardContent } from "@/index"
+// Example: import { Card, Button, HomeContent } from "@/index"
 
 // ==========================================
 // UI Components
@@ -25,53 +25,19 @@ export {
 // ==========================================
 // Common Components
 // ==========================================
-export { ThemeToggle, Header } from "@/components/common";
+export { default as ThemeToggle } from "@/components/common/ThemeToggle";
+export { default as Header } from "@/components/layout/Header";
 
 // ==========================================
-// Feature Components (Main Exports)
+// Feature Components
 // ==========================================
-export { default as DashboardContent } from "@/features/dashboard/DashboardContent";
+export { default as HomeContent } from "@/features/home/HomeContent";
 export { default as DiseaseDetectionContent } from "@/features/disease-detection/DiseaseDetectionContent";
-export { default as SoilMonitoringContent } from "@/features/soil-monitoring/SoilMonitoringContent";
 export { default as AssistantContent } from "@/features/assistant/AssistantContent";
 export { default as LoginContent } from "@/features/auth/LoginContent";
 
 // ==========================================
-// Feature Sub-Components (Dashboard)
-// ==========================================
-export {
-  DashboardStats,
-  MoistureChart,
-  NutrientChart,
-  RecommendationCards,
-} from "@/features/dashboard/components";
-
-// ==========================================
-// Feature Sub-Components (Disease Detection)
-// ==========================================
-export {
-  ImageUploadSection,
-  HowItWorks,
-  ResultPreview,
-  TrustFeatures,
-} from "@/features/disease-detection/components";
-
-// ==========================================
-// Feature Sub-Components (Soil Monitoring)
-// ==========================================
-export {
-  SensorCardsGrid,
-  SoilDataTrend,
-  FertilizerRecommendations,
-} from "@/features/soil-monitoring/components";
-
-// ==========================================
-// Feature Sub-Components (Assistant)
-// ==========================================
-export { ChatMessage, ChatMessages, ChatInput } from "@/features/assistant/components";
-
-// ==========================================
-// Feature Sub-Components (Auth)
+// Feature Sub-Components
 // ==========================================
 export { LoginForm } from "@/features/auth/components";
 

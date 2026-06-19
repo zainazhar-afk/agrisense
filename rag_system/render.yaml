@@ -15,7 +15,7 @@ services:
       - key: RAG_OCR_OUTPUT
         value: ./storage/ocr_pages.jsonl
       - key: OPENAI_MODEL
-        value: LongCat-Flash-Chat
-      - key: OPENAI_BASE_URL
-        value: https://api.longcat.chat/openai
+        value: gpt-4o-mini
+      - key: OPENAI_EMBEDDING_MODEL
+        value: text-embedding-3-large
 

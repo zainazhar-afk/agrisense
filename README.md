@@ -44,7 +44,7 @@ Endpoints:
 
 ### RAG Agriculture Assistant
 
-The RAG service lives in `rag_system/`. It OCRs the Urdu PDF files from `E:\rag data`, embeds the text with `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, stores vectors in FAISS, and uses Gemini for multilingual answers.
+The RAG service lives in `rag_system/`. It OCRs the Urdu PDF files from `E:\rag data`, embeds the text with OpenAI embeddings, stores vectors in FAISS, and uses OpenAI for multilingual answers.
 
 ```bash
 cd rag_system
@@ -111,7 +111,7 @@ AgriSense/
   backend/                   Express API for auth, posts, soil, upload
   frontend/                  Next.js web app
   plant_disease_detection/   FastAPI + ONNX cotton disease detection API
-  rag_system/                OCR + FAISS + Gemini RAG assistant API
+  rag_system/                OCR + FAISS + OpenAI RAG assistant API
 ```
 
 ## Notes
@@ -119,4 +119,4 @@ AgriSense/
 - The cotton ONNX model is the runtime model for web and mobile backend inference.
 - The Keras model should be treated as a training/export artifact.
 - For production, restrict FastAPI CORS origins and put authentication/rate limiting in front of public prediction endpoints.
-- Keep Gemini and MongoDB secrets in `.env` files, not in source code.
+- Keep OpenAI and MongoDB secrets in `.env` files, not in source code.

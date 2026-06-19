@@ -8,38 +8,19 @@ Usage:
 import argparse
 import json
 from pathlib import Path
-import sys
-
-# Compatibility patch for easyocr + python-bidi mismatch
-# easyocr expects get_display to be available from bidi module
-try:
-    from bidi import get_display
-except ImportError:
-    try:
-        from bidi.algorithm import get_display
-        # Inject it into bidi module so easyocr can find it
-        import bidi
-        bidi.get_display = get_display
-    except ImportError:
-        # Provide a dummy implementation if neither works
-        def get_display(text, **kwargs):
-            return text
-        import bidi
-        bidi.get_display = get_display
-
-import easyocr
-import fitz
-import numpy as np
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
-from PIL import Image
 
 import config
 
 
 def render_page(page, zoom=2.0):
+    import fitz
+    import numpy as np
+    from PIL import Image
+
     matrix = fitz.Matrix(zoom, zoom)
     pixmap = page.get_pixmap(matrix=matrix, alpha=False)
     image = Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
@@ -47,6 +28,8 @@ def render_page(page, zoom=2.0):
 
 
 def ocr_pdf(pdf_path: Path, reader, zoom: float):
+    import fitz
+
     records = []
     with fitz.open(pdf_path) as doc:
         for page_index, page in enumerate(doc, start=1):
@@ -72,19 +55,62 @@ def write_jsonl(records, output_path: Path):
 
 def read_jsonl(input_path: Path):
     records = []
-    with input_path.open("r", encoding="utf-8") as f:
+    with input_path.open("r", encoding="utf-8-sig") as f:
         for line in f:
             if line.strip():
                 records.append(json.loads(line))
     return records
 
 
+def patch_bidi_for_easyocr():
+    try:
+        from bidi import get_display  # noqa: F401
+        return
+    except ImportError:
+        from bidi.algorithm import get_display
+        import bidi
+
+        bidi.get_display = get_display
+
+
 def records_to_documents(records):
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=config.CHUNK_SIZE,
         chunk_overlap=config.CHUNK_OVERLAP,
-        separators=["\n\n", "\n", "۔", "؟", "!", ".", "،", " ", ""],
+        separators=["\n\n", "\n", "”", "…", "!", ".", "•", " ", ""],
     )
+
+    def normalize_metadata(record, chunk_index):
+        metadata = {
+            "source": record.get("source"),
+            "path": record.get("path"),
+            "page": record.get("page", 0),
+            "chunk": chunk_index,
+        }
+
+        extra_fields = [
+            "lang",
+            "topic",
+            "crop",
+            "season",
+            "region",
+            "soil_zone",
+            "intent",
+            "question_type",
+            "farmer_type",
+            "response_style",
+            "farmer_profile",
+            "query_type",
+            "audience",
+            "text_hash_sha256",
+            "record_id",
+        ]
+        for field in extra_fields:
+            value = record.get(field)
+            if value is not None:
+                metadata[field] = value
+
+        return metadata
 
     docs = []
     for record in records:
@@ -92,12 +118,7 @@ def records_to_documents(records):
         for chunk_index, chunk in enumerate(chunks):
             docs.append(Document(
                 page_content=chunk,
-                metadata={
-                    "source": record["source"],
-                    "path": record["path"],
-                    "page": record["page"],
-                    "chunk": chunk_index,
-                },
+                metadata=normalize_metadata(record, chunk_index),
             ))
     return docs
 
@@ -107,9 +128,12 @@ def build_vectorstore(records):
     if not docs:
         raise RuntimeError("No OCR text found. Check the PDF folder and OCR settings.")
 
-    embeddings = HuggingFaceEmbeddings(
-        model_name=config.EMBEDDING_MODEL_NAME,
-        encode_kwargs={"normalize_embeddings": True},
+    if not config.OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is required to build the FAISS index.")
+
+    embeddings = OpenAIEmbeddings(
+        api_key=config.OPENAI_API_KEY,
+        model=config.OPENAI_EMBEDDING_MODEL,
     )
     vectorstore = FAISS.from_documents(docs, embeddings)
     config.VECTORSTORE_DIR.mkdir(parents=True, exist_ok=True)
@@ -129,13 +153,16 @@ def main():
     data_dir = Path(args.data_dir)
     ocr_output = Path(args.ocr_output)
 
-    if not data_dir.exists():
-        raise FileNotFoundError(f"RAG data folder not found: {data_dir}")
-
     if args.force_ocr or not ocr_output.exists():
+        if not data_dir.exists():
+            raise FileNotFoundError(f"RAG data folder not found: {data_dir}")
+
         pdfs = sorted(data_dir.glob("*.pdf"))
         if not pdfs:
             raise FileNotFoundError(f"No PDF files found in {data_dir}")
+
+        patch_bidi_for_easyocr()
+        import easyocr
 
         reader = easyocr.Reader(["ur", "en"], gpu=False)
         records = []
