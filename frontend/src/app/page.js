@@ -1,11 +1,11 @@
 import  HomeContent  from "@/features/home/HomeContent";
 
 export const metadata = {
-  title: "AgriSense AI - Smart Farming Solutions",
+  title: "AgriSense | Digital tools for Pakistani farmers",
   description:
-    "Detect crop diseases, monitor soil health, and optimize irrigation with AI-powered insights for sustainable agriculture.",
+    "Crop diagnostics, multilingual guidance, and community context for Pakistani farmers.",
   icons: {
-    icon: "/icon.png",
+    icon: "/favicon.ico",
   },
 };
 

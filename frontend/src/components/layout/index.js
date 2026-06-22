@@ -1,4 +1,3 @@
-export { Header } from "./Header";
-export { Logo } from "./Logo";
-export { DesktopNav, MobileNav, NavItems } from "./Navigation";
-export { MobileMenuToggle, ThemeToggleButton } from "./HeaderControls";
+export { default as Header } from "./Header";
+export { navigationLinks } from "./siteConfig";
+export { Logo, NavItems, DesktopNav, MobileNav, MobileMenuButton } from "./Navigation";
