@@ -39,7 +39,7 @@ export async function predictDisease(imageFile, topK = 3) {
 
     // Parse and return response
     const data = await response.json();
-    return data;
+    return data.data || data;
   } catch (error) {
     console.error("Disease prediction error:", error);
     throw error;
@@ -65,7 +65,7 @@ export async function getDiseaseInfo(diseaseName) {
     }
 
     const data = await response.json();
-    return data;
+    return data.info || data;
   } catch (error) {
     console.error("Get disease info error:", error);
     throw error;
