@@ -17,7 +17,7 @@ import AuthModal from "@/components/AuthModal";
 import { useToast } from "@/components/system/AppProviders";
 import { uploadToCloudinary } from "@/utils/cloudinary";
 
-const API_URL = process.env.NEXT_PUBLIC_APP_API_URL || "http://localhost:5000/api";
+const API_URL = process.env.NEXT_PUBLIC_APP_API_URL || "https://agrisence-backend.onrender.com/api";
 
 function getStoredAuth() {
   if (typeof window === "undefined") {
