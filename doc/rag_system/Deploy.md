@@ -14,7 +14,7 @@ uvicorn app:app --host 0.0.0.0 --port 8001
 
 ## Environment variables
 Set these in your hosting provider:
-- GROQ_API_KEY
+- OPENAI_API_KEY
 - ELEVENLABS_API_KEY (optional)
 - RAG_DATA_DIR (if PDFs are available on the server)
 

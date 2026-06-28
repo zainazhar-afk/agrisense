@@ -17,7 +17,7 @@ pip install -r requirements.txt
 Create rag_system/.env:
 
 ```
-GROQ_API_KEY=your_key_here
+OPENAI_API_KEY=your_key_here
 ELEVENLABS_API_KEY=optional
 RAG_DATA_DIR=E:\rag data
 ```

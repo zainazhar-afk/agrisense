@@ -79,28 +79,16 @@ class AskResponse(BaseModel):
 
 
 def create_llm():
-    # GROQ (Active)
-    if config.GROQ_API_KEY:
-        from langchain_groq import ChatGroq
+    if not config.OPENAI_API_KEY:
+        raise RuntimeError("No LLM API key found. Add OPENAI_API_KEY to rag_system/.env")
 
-        return ChatGroq(
-            model_name=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
-            api_key=config.GROQ_API_KEY,
-            temperature=0.2,
-        )
-    
-    # LONGCAT (Commented out - uncomment to use)
-    # if config.OPENAI_API_KEY:
-    #     from langchain_openai import ChatOpenAI
-    #
-    #     return ChatOpenAI(
-    #         model_name=os.getenv("OPENAI_MODEL", "LongCat-2.0-Preview"),
-    #         api_key=config.OPENAI_API_KEY,
-    #         base_url=os.getenv("OPENAI_BASE_URL", "https://api.longcat.chat/openai"),
-    #         temperature=0.2,
-    #     )
+    from langchain_openai import ChatOpenAI
 
-    raise RuntimeError("No LLM API key found. Add GROQ_API_KEY to rag_system/.env")
+    return ChatOpenAI(
+        model=config.OPENAI_MODEL,
+        api_key=config.OPENAI_API_KEY,
+        temperature=0.2,
+    )
 
 
 def get_language_name(code: str):
@@ -227,7 +215,7 @@ def initialize_rag():
     rag_loading = True
     startup_error = None
     try:
-        print("🔄 Starting RAG initialization...")
+        print("Starting RAG initialization...")
         from langchain_community.vectorstores import FAISS
 
         print(f"Checking FAISS index at: {config.VECTORSTORE_DIR}")
@@ -239,11 +227,11 @@ def initialize_rag():
             )
 
         print("FAISS directory found. Loading embeddings...")
-        from langchain_community.embeddings import FastEmbedEmbeddings
-        # Use lightweight FastEmbed for low memory footprint
-        embeddings = FastEmbedEmbeddings(
-            model_name="BAAI/bge-small-en-v1.5",
-            max_length=512,
+        from langchain_openai import OpenAIEmbeddings
+
+        embeddings = OpenAIEmbeddings(
+            api_key=config.OPENAI_API_KEY,
+            model=config.OPENAI_EMBEDDING_MODEL,
         )
         print("Embeddings loaded. Loading FAISS index...")
         vectorstore = FAISS.load_local(
@@ -311,7 +299,8 @@ async def health():
         "llm_loaded": llm is not None,
         "rag_loading": rag_loading,
         "startup_error": startup_error,
-        "model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+        "model": config.OPENAI_MODEL,
+        "embedding_model": config.OPENAI_EMBEDDING_MODEL,
         "languages": config.SUPPORTED_LANGUAGES,
     }
 
@@ -453,9 +442,9 @@ async def speak(request: Request):
                 )
             except Exception as e:
                 if "quota_exceeded" in str(e).lower():
-                    print(f"⚠️  ElevenLabs quota exceeded, falling back to local TTS")
+                    print("ElevenLabs quota exceeded, falling back to local TTS")
                 else:
-                    print(f"⚠️  ElevenLabs error: {str(e)}, falling back to local TTS")
+                    print(f"ElevenLabs error: {str(e)}, falling back to local TTS")
         
         # Fallback to gTTS (free, cloud-based TTS)
         from gtts import gTTS
@@ -482,13 +471,13 @@ async def speak(request: Request):
                 headers={"Content-Disposition": "inline"}
             )
         except Exception as fallback_error:
-            print(f"❌ gTTS error: {str(fallback_error)}")
+            print(f"gTTS error: {str(fallback_error)}")
             raise HTTPException(status_code=500, detail=f"Text-to-speech error: {str(fallback_error)}")
             
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Text-to-speech error: {str(e)}")
+        print(f"Text-to-speech error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Text-to-speech error: {str(e)}")
 
 
