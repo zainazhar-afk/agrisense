@@ -1,441 +1,483 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  Bot,
-  CalendarDays,
-  Camera,
-  ChartColumnBig,
-  CheckCircle2,
-  CloudSun,
-  Leaf,
-  MapPinned,
-  MessagesSquare,
-  Radar,
-  ShieldCheck,
-  Sparkles,
-  Waves,
-} from "lucide-react";
+import { ArrowRight, Camera, Bot, Users, BookOpen, Camera as ScanIcon, Cpu, FileCheck, Star, ChevronRight } from "lucide-react";
 
-const modules = [
+/* ─── data ─────────────────────────────────────────────────── */
+
+const features = [
   {
-    title: "Vision diagnostics",
-    body: "Upload a cotton leaf and review ranked predictions, symptoms, and treatment notes without leaving the flow.",
+    title: "Disease Lab",
+    body: "Upload a leaf photo and get instant AI diagnosis with treatment recommendations.",
     icon: Camera,
-    stat: "Scan, compare, decide",
+    img: "/disease-lab.png",
+    href: "/disease-detection",
   },
   {
-    title: "Multilingual retrieval",
-    body: "Ask practical questions in Urdu, Punjabi, or English and keep the answer grounded in your farm context.",
+    title: "AI Assistant",
+    body: "Ask any farming question and get expert answers in real-time.",
     icon: Bot,
-    stat: "Sources, translation, audio",
+    img: "/ai-chat.png",
+    href: "/assistant",
   },
   {
-    title: "Field community",
-    body: "Collect local observations and farmer reports in a feed that feels useful instead of noisy.",
-    icon: MessagesSquare,
-    stat: "Posts, comments, media",
+    title: "Community",
+    body: "Connect with fellow farmers, share experiences, and learn together.",
+    icon: Users,
+    img: "/community-card.png",
+    href: "/social",
+  },
+  {
+    title: "Knowledge Hub",
+    body: "Access expert guides, articles, and best practices for crop protection.",
+    icon: BookOpen,
+    img: "/knowledge-hub.png",
+    href: "/assistant",
   },
 ];
 
-const systemRows = [
-  ["Disease engine", "FastAPI model flow for cotton disease analysis"],
-  ["Assistant loop", "OpenAI answers over FAISS retrieval"],
-  ["Farmer context", "Personalized around Pakistani agriculture"],
+const stats = [
+  { value: "94.2%", label: "Detection Accuracy" },
+  { value: "2s", label: "Average Response" },
+  { value: "12K+", label: "Active Farmers" },
+  { value: "500+", label: "Expert Guides" },
 ];
 
-const proofPoints = [
-  "The interface exposes the product itself instead of hiding behind generic AI marketing.",
-  "Light glass surfaces, calmer spacing, and sharper typography make the app feel more premium.",
-  "Animations reinforce state and hierarchy rather than acting like decoration pasted on top.",
-];
-
-const dashboardStats = [
-  ["Answer languages", "03"],
-  ["Connected services", "03"],
-  ["Core workflows", "04"],
-];
-
-const farmRhythm = [
+const steps = [
   {
-    title: "Weather watch",
-    value: "34°C",
-    note: "Late afternoon scouting is easier than noon passes.",
-    icon: CloudSun,
+    number: "1",
+    title: "Snap a Photo",
+    body: "Take a clear photo of the affected leaf.",
+    icon: ScanIcon,
   },
   {
-    title: "Mandi pulse",
-    value: "steady",
-    note: "No urgent selling signal. Watch for local transport swings.",
-    icon: ChartColumnBig,
+    number: "2",
+    title: "AI Analysis",
+    body: "Our AI analyzes the image in under 3 seconds.",
+    icon: Cpu,
   },
   {
-    title: "Field calendar",
-    value: "this week",
-    note: "Review pest pressure after irrigation and after rain windows.",
-    icon: CalendarDays,
-  },
-  {
-    title: "Local context",
-    value: "Punjab",
-    note: "The product language stays grounded in Pakistani farm routines.",
-    icon: MapPinned,
+    number: "3",
+    title: "Get Results",
+    body: "Receive diagnosis and treatment recommendations.",
+    icon: FileCheck,
   },
 ];
 
-function PreviewWindow() {
+const testimonials = [
+  {
+    quote: "AgriSense helped me identify the disease early. Saved my entire crop!",
+    name: "Ramesh Yadav",
+    role: "Wheat Farmer, India",
+    initials: "RY",
+  },
+  {
+    quote: "The AI suggestions are spot on and easy to follow. Highly recommended!",
+    name: "Fatima Noor",
+    role: "Vegetable Grower, Pakistan",
+    initials: "FN",
+  },
+  {
+    quote: "Finally, a platform that truly understands farmers' needs.",
+    name: "Carlos M.",
+    role: "Corn Farmer, Brazil",
+    initials: "CM",
+  },
+];
+
+/* ─── floating hero cards ──────────────────────────────────── */
+
+function DiseaseCard() {
   return (
     <motion.div
-      initial={{ opacity: 0, x: 30, y: 18 }}
-      animate={{ opacity: 1, x: 0, y: 0 }}
-      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-      className="app-window floating-soft hidden min-h-[540px] lg:block"
+      initial={{ opacity: 0, y: -16, x: 16 }}
+      animate={{ opacity: 1, y: 0, x: 0 }}
+      transition={{ duration: 0.8, delay: 0.4 }}
+      className="absolute top-8 right-4 z-10 w-52 rounded-2xl border border-white/30 bg-white/90 backdrop-blur-md shadow-xl px-4 py-3"
     >
-      <div className="window-header">
-        <span className="window-dot" />
-        <span className="window-dot" />
-        <span className="window-dot" />
-        <span className="ml-3 text-xs uppercase tracking-[0.22em] text-slate-400">control deck</span>
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+          <Image src="/disease-lab.png" alt="leaf" width={28} height={28} className="object-contain rounded-lg" />
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Disease Detected</div>
+          <div className="text-sm font-bold text-slate-900 leading-tight">Bacterial Blight</div>
+        </div>
       </div>
-
-      <div className="grid gap-4 p-5">
-        <div className="rounded-[1.7rem] border border-emerald-100 bg-[linear-gradient(135deg,rgba(228,236,220,0.94),rgba(239,244,234,0.92),rgba(232,239,226,0.9))] p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-sm uppercase tracking-[0.18em] text-slate-500">Live assistant</div>
-              <div className="mt-3 max-w-sm font-display text-2xl leading-tight text-slate-950">
-                Practical guidance built for farmers, not generic chatbot demos.
-              </div>
-            </div>
-            <div className="rounded-full border border-emerald-100 bg-slate-100/80 px-3 py-1 text-xs text-slate-600">Active</div>
-          </div>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[1.3rem] border border-emerald-100 bg-slate-100/72 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Response mode</div>
-              <div className="mt-2 text-sm text-slate-600">Urdu answer with citations, translation, and voice playback.</div>
-            </div>
-            <div className="rounded-[1.3rem] border border-emerald-100 bg-slate-100/72 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-400">Source view</div>
-              <div className="mt-2 text-sm text-slate-600">Retrieved pages remain visible as traceable source chips.</div>
-            </div>
-          </div>
+      <div className="flex items-center gap-1.5">
+        <div className="h-1.5 flex-1 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-1.5 rounded-full bg-green-500" style={{ width: "94%" }} />
         </div>
-
-        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[1.6rem] border border-emerald-100 bg-slate-100/72 p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-slate-900">Field signal board</div>
-              <div className="data-chip">system ready</div>
-            </div>
-            <div className="mt-5 space-y-4">
-              {systemRows.map(([title, text]) => (
-                <div key={title} className="rounded-[1.2rem] border border-emerald-100 bg-[rgba(239,244,234,0.92)] px-4 py-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                    <CheckCircle2 className="h-4 w-4 text-lime-500" />
-                    {title}
-                  </div>
-                  <div className="mt-2 text-sm leading-6 text-slate-600">{text}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-[1.6rem] border border-emerald-100 bg-slate-100/72 p-4">
-            <div className="text-sm font-medium text-slate-900">Disease confidence</div>
-            <div className="mt-5 space-y-4">
-              {[
-                ["Curl Virus", "84%"],
-                ["Bacterial Blight", "11%"],
-                ["Healthy Leaf", "5%"],
-              ].map(([label, width]) => (
-                <div key={label}>
-                  <div className="flex items-center justify-between text-sm text-slate-600">
-                    <span>{label}</span>
-                    <span>{width}</span>
-                  </div>
-                  <div className="mt-2 h-2 rounded-full bg-slate-100">
-                    <div
-                      className="h-2 rounded-full bg-[linear-gradient(90deg,#2563eb,#06b6d4,#84cc16)]"
-                      style={{ width }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 rounded-[1.2rem] border border-dashed border-emerald-100 px-4 py-5 text-sm text-slate-600">
-              Media upload, diagnosis review, and treatment guidance all sit in one calmer workflow.
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          {dashboardStats.map(([label, value]) => (
-            <div key={label} className="rounded-[1.3rem] border border-emerald-100 bg-slate-100/72 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{label}</div>
-              <div className="mt-3 font-display text-3xl text-slate-950">{value}</div>
-            </div>
-          ))}
-        </div>
+        <span className="text-xs font-semibold text-green-600">94.2%</span>
       </div>
     </motion.div>
   );
 }
 
+function TreatmentCard() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16, x: 16 }}
+      animate={{ opacity: 1, y: 0, x: 0 }}
+      transition={{ duration: 0.8, delay: 0.6 }}
+      className="absolute bottom-16 right-4 z-10 w-52 rounded-2xl border border-white/30 bg-white/90 backdrop-blur-md shadow-xl px-4 py-3"
+    >
+      <div className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold mb-1">Recommended Treatment</div>
+      <div className="flex items-center gap-2">
+        <div className="text-2xl">🧪</div>
+        <div className="text-sm font-bold text-slate-900">Copper-based Fungicide</div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ─── main component ────────────────────────────────────────── */
+
 export default function HomeContent() {
   return (
-    <div>
-      <section className="relative min-h-[90vh] overflow-hidden">
-        <video autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover">
-          <source src="/Posterfin2.mp4" type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(230,238,248,0.94),rgba(230,238,248,0.8),rgba(230,238,248,0.42))]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(126,166,108,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(166,201,123,0.14),transparent_30%)]" />
+    <div className="overflow-x-hidden">
 
-        <div className="page-wrap relative">
-          <div className="grid min-h-[90vh] gap-10 pb-16 pt-28 lg:grid-cols-[minmax(0,0.9fr)_minmax(460px,0.76fr)] lg:items-end">
-            <div className="max-w-3xl pb-4">
-              <motion.div
-                initial={{ opacity: 0, y: 22 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7 }}
-                className="eyebrow"
-              >
-                <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
-                futuristic farm intelligence
-              </motion.div>
+      {/* ── HERO ─────────────────────────────────────────────── */}
+      <section className="relative min-h-[92vh] flex items-center overflow-hidden">
+        {/* background image */}
+        <Image
+          src="/hero-bg.png"
+          alt="Agricultural field at sunrise"
+          fill
+          priority
+          className="object-cover object-center"
+        />
+        {/* dark overlay — heavier on left for text legibility */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-900/60 to-slate-900/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
 
+        {/* badge */}
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="absolute top-6 sm:top-8 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full border border-green-400/30 bg-green-500/15 backdrop-blur-sm px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-green-300"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+          AI-Powered Agriculture
+        </motion.div>
+
+        <div className="relative w-full max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 lg:px-16 xl:px-20 py-20">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+
+            {/* left — text */}
+            <div className="max-w-2xl">
               <motion.h1
-                initial={{ opacity: 0, y: 24 }}
+                initial={{ opacity: 0, y: 28 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.85, delay: 0.08 }}
-                className="hero-title mt-6 max-w-5xl"
+                transition={{ duration: 0.8, delay: 0.1 }}
+                className="text-[clamp(2rem,5.5vw,4.4rem)] font-extrabold leading-[1.1] tracking-tight text-white"
               >
-                Precision agriculture software with a lighter, sharper pulse.
+                Smarter Detection.<br />
+                Healthier Crops.<br />
+                <span className="text-green-400">Better Tomorrow.</span>
               </motion.h1>
 
               <motion.p
-                initial={{ opacity: 0, y: 22 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.75, delay: 0.16 }}
-                className="mt-6 max-w-2xl text-lg leading-8 text-slate-600"
+                transition={{ duration: 0.7, delay: 0.22 }}
+                className="mt-4 sm:mt-5 max-w-xl text-sm sm:text-base leading-7 sm:leading-8 text-slate-300"
               >
-                AgriSense combines crop vision, multilingual retrieval, and community field knowledge in a product
-                surface that feels modern, trustworthy, and built for actual daily use.
+                Detect crop diseases early, get expert recommendations, and connect with{" "}
+                <span className="text-green-400 font-semibold">12,000+ farmers</span> worldwide.
               </motion.p>
 
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.24 }}
-                className="mt-8 flex flex-col gap-3 sm:flex-row"
+                transition={{ duration: 0.7, delay: 0.32 }}
+                className="mt-6 sm:mt-8 flex flex-wrap gap-2.5 sm:gap-3"
               >
-                <Link href="/assistant" className="button-primary">
-                  Open the assistant
-                  <ArrowRight className="h-4 w-4" />
+                <Link
+                  href="/disease-detection"
+                  className="inline-flex items-center gap-2 rounded-full bg-green-500 hover:bg-green-400 px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-white shadow-lg shadow-green-500/25 transition-all duration-200 hover:-translate-y-0.5"
+                >
+                  <ScanIcon className="h-4 w-4" />
+                  Start Free Detection
                 </Link>
-                <Link href="/disease-detection" className="button-secondary">
-                  Scan a leaf
+                <Link
+                  href="/disease-detection"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 backdrop-blur-sm hover:bg-white/18 px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5"
+                >
+                  🔬 Explore Disease Lab
                 </Link>
               </motion.div>
 
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.32 }}
-                className="mt-10 grid gap-3 sm:grid-cols-3"
+                transition={{ duration: 0.6, delay: 0.44 }}
+                className="mt-6 sm:mt-8 flex flex-wrap gap-4 sm:gap-5 text-xs sm:text-sm text-slate-300"
               >
-                {[
-                  ["Urdu, Punjabi, English", "Practical multilingual flow"],
-                  ["Grounded answers", "Source-aware retrieval output"],
-                  ["Connected tools", "Built around this live stack"],
-                ].map(([title, text]) => (
-                  <div key={title} className="metric-tile rounded-[1.5rem] bg-slate-100/70 backdrop-blur-md">
-                    <div className="text-base font-semibold text-slate-950">{title}</div>
-                    <div className="mt-2 text-sm leading-6 text-slate-600">{text}</div>
-                  </div>
+                {["No Sign Up Required", "AI-Powered Accuracy", "100% Free Forever"].map((badge) => (
+                  <span key={badge} className="flex items-center gap-1.5">
+                    <span className="text-green-400">✓</span>
+                    {badge}
+                  </span>
                 ))}
               </motion.div>
             </div>
 
-            <div className="relative">
-              <PreviewWindow />
+            {/* right — farmer image + floating cards */}
+            <div className="relative hidden lg:flex justify-center items-center h-[65vh] max-h-[700px]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 1, delay: 0.2 }}
+                className="relative h-full w-full max-w-md"
+              >
+                <Image
+                  src="/farmer-tablet.png"
+                  alt="Farmer using AgriSense"
+                  fill
+                  className="object-contain object-center"
+                />
+              </motion.div>
+              <DiseaseCard />
+              <TreatmentCard />
             </div>
+          </div>
+        </div>
+
+        {/* stats bar */}
+        <div className="absolute bottom-0 inset-x-0 bg-slate-900/80 backdrop-blur-md border-t border-white/10">
+          <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 md:px-10 lg:px-16 xl:px-20 py-4 sm:py-5 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+            {stats.map((stat) => (
+              <div key={stat.label} className="flex items-center gap-2 sm:gap-3">
+                <div className="text-green-400 text-base sm:text-xl font-bold">⚡</div>
+                <div>
+                  <div className="text-lg sm:text-xl font-extrabold text-white">{stat.value}</div>
+                  <div className="text-[10px] sm:text-xs text-slate-400">{stat.label}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="section-cream -mt-10 rounded-t-[2.5rem] pt-14">
-        <div className="page-wrap">
-          <div className="mb-8 grid gap-4 lg:grid-cols-4">
-            {farmRhythm.map((item) => {
-              const Icon = item.icon;
+      {/* ── FEATURES ─────────────────────────────────────────── */}
+      <section className="bg-white py-16 sm:py-20 lg:py-24">
+        <div className="w-full px-4 sm:px-6 md:px-10 lg:px-16 xl:px-20 2xl:px-32">
+          <div className="text-center mb-10 sm:mb-14">
+            <div className="inline-flex items-center gap-2 text-green-600 font-semibold text-xs sm:text-sm mb-3">
+              🌿 Everything a <span className="text-green-500">farmer</span> needs
+            </div>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900">
+              Everything a <span className="text-green-500">farmer</span> needs
+            </h2>
+            <p className="mt-3 text-slate-500 text-sm sm:text-base max-w-xl mx-auto">
+              Powerful AI tools to protect your crops and increase your yield
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
+            {features.map((feat, i) => {
+              const Icon = feat.icon;
               return (
-                <div key={item.title} className="panel-light rounded-[1.6rem] p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-[1rem] border border-emerald-100 bg-slate-100/80">
-                      <Icon className="h-5 w-5 text-emerald-600" />
-                    </div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{item.title}</div>
+                <motion.div
+                  key={feat.title}
+                  initial={{ opacity: 0, y: 28 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ duration: 0.6, delay: i * 0.1 }}
+                  className="group rounded-3xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 mb-4">
+                    <Icon className="h-6 w-6 text-green-600" />
                   </div>
-                  <div className="mt-5 font-display text-3xl text-slate-950">{item.value}</div>
-                  <div className="mt-3 text-sm leading-7 text-slate-600">{item.note}</div>
-                </div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">{feat.title}</h3>
+                  <p className="text-sm text-slate-500 leading-7 mb-4">{feat.body}</p>
+                  <Link
+                    href={feat.href}
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-green-600 hover:text-green-500 transition-colors"
+                  >
+                    Explore <ChevronRight className="h-4 w-4" />
+                  </Link>
+                  {/* card illustration */}
+                  <div className="mt-5 h-28 rounded-2xl overflow-hidden bg-green-50 relative">
+                    <Image src={feat.img} alt={feat.title} fill className="object-contain p-2" />
+                  </div>
+                </motion.div>
               );
             })}
           </div>
+        </div>
+      </section>
 
-          <div className="grid gap-8 lg:grid-cols-[0.86fr_1.14fr] lg:items-start">
-            <div className="max-w-xl">
-              <div className="eyebrow">
-                <Radar className="h-3.5 w-3.5 text-emerald-700" />
-                product direction
+      {/* ── HOW IT WORKS ─────────────────────────────────────── */}
+      <section className="bg-[#1a2e1e] py-16 sm:py-20 lg:py-24">
+        <div className="w-full px-4 sm:px-6 md:px-10 lg:px-16 xl:px-20 2xl:px-32">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+
+            {/* phone mockup */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="relative mx-auto w-64 md:w-72"
+            >
+              {/* phone frame */}
+              <div className="rounded-[2.8rem] border-4 border-slate-700 bg-white overflow-hidden shadow-2xl shadow-black/40">
+                <Image
+                  src="/phone-scan.png"
+                  alt="AgriSense scan result screen"
+                  width={320}
+                  height={620}
+                  className="w-full"
+                />
               </div>
-              <h2 className="section-title mt-6">A more futuristic interface that still feels useful on day one.</h2>
-              <p className="section-copy mt-5">
-                The redesign leans into premium product patterns: airy glass surfaces, bright technical accents,
-                cinematic structure, and actual application previews instead of vague promise-heavy sections.
-              </p>
+              {/* glow */}
+              <div className="absolute -inset-6 rounded-[3rem] bg-green-500/10 blur-2xl -z-10" />
+              {/* leaf decoration */}
+              <motion.div
+                animate={{ rotate: [0, 8, 0], y: [0, -8, 0] }}
+                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute -right-10 top-1/3 w-20 h-28 opacity-60"
+              >
+                <Image src="/leaf.png" alt="" fill className="object-contain" />
+              </motion.div>
+            </motion.div>
 
-              <div className="mt-8 space-y-3">
-                {proofPoints.map((point) => (
-                  <div key={point} className="panel-light rounded-[1.4rem] px-4 py-4">
-                    <div className="flex items-start gap-3">
-                      <ShieldCheck className="mt-0.5 h-5 w-5 text-teal-500" />
-                      <span className="text-sm leading-7 text-slate-600">{point}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* steps */}
+            <div>
+              <div className="text-green-400 text-xs font-bold uppercase tracking-widest mb-3">HOW IT WORKS</div>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight mb-8 sm:mb-10">
+                Detect diseases in<br />
+                <span className="text-green-400">3 simple steps</span>
+              </h2>
 
-            <div className="grid gap-4">
-              {modules.map((module, index) => {
-                const Icon = module.icon;
-                return (
-                  <motion.div
-                    key={module.title}
-                    initial={{ opacity: 0, y: 26 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.25 }}
-                    transition={{ duration: 0.7, delay: index * 0.08 }}
-                    className="panel-light rounded-[1.85rem] p-6"
-                  >
-                    <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-                      <div className="flex gap-4">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.2rem] border border-emerald-100 bg-slate-100/76">
-                          <Icon className="h-6 w-6 text-emerald-700" />
-                        </div>
-                        <div>
-                          <div className="font-display text-2xl font-semibold text-slate-950">{module.title}</div>
-                          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">{module.body}</p>
-                        </div>
+              <div className="space-y-6">
+                {steps.map((step, i) => {
+                  const Icon = step.icon;
+                  return (
+                    <motion.div
+                      key={step.title}
+                      initial={{ opacity: 0, x: 20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.6, delay: i * 0.12 }}
+                      className="flex items-start gap-5"
+                    >
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-500 text-white font-extrabold text-lg shadow-lg shadow-green-500/30">
+                        {step.number}
                       </div>
-                      <div className="data-chip whitespace-nowrap">{module.stat}</div>
-                    </div>
-                  </motion.div>
-                );
-              })}
+                      <div>
+                        <div className="text-base font-bold text-white">{step.title}</div>
+                        <div className="mt-1 text-sm text-slate-400 leading-7">{step.body}</div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-8 sm:mt-10">
+                <Link
+                  href="/disease-detection"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/8 hover:bg-white/15 px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white transition-all duration-200"
+                >
+                  Learn More <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="section-dark py-[4.5rem]">
-        <div className="page-wrap py-16">
-          <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
-            <div className="panel rounded-[2rem] p-6 md:p-8">
-              <div className="window-header -mx-6 -mt-6 mb-6 md:-mx-8 md:-mt-8">
-                <span className="window-dot" />
-                <span className="window-dot" />
-                <span className="window-dot" />
-                <span className="ml-3 text-xs uppercase tracking-[0.22em] text-slate-400">assistant workflow</span>
-              </div>
+      {/* ── TESTIMONIALS ─────────────────────────────────────── */}
+      <section className="bg-white py-16 sm:py-20 lg:py-24">
+        <div className="w-full px-4 sm:px-6 md:px-10 lg:px-16 xl:px-20 2xl:px-32">
+          <div className="text-center mb-10 sm:mb-14">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900">
+              Loved by <span className="text-green-500">farmers worldwide</span>
+            </h2>
+          </div>
 
-              <div className="grid gap-5">
-                <div className="rounded-[1.6rem] border border-emerald-100 bg-slate-100/72 p-5">
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium text-slate-950">Voice, translation, citations</div>
-                    <div className="data-chip">live surface</div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+            {testimonials.map((t, i) => (
+              <motion.div
+                key={t.name}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: i * 0.1 }}
+                className="rounded-3xl border border-slate-100 bg-white p-7 shadow-sm hover:shadow-md transition-shadow duration-300"
+              >
+                {/* stars */}
+                <div className="flex gap-1 mb-4">
+                  {Array.from({ length: 5 }).map((_, s) => (
+                    <Star key={s} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  ))}
+                </div>
+                <p className="text-slate-600 text-sm leading-8 mb-6">"{t.quote}"</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700 text-sm font-bold">
+                    {t.initials}
                   </div>
-                  <div className="mt-4 space-y-3">
-                    {[
-                      "Quick prompt chips keep the conversation moving without feeling cluttered.",
-                      "Inline translation is available where it matters, not buried in settings.",
-                      "Audio playback now includes a clear stop path in the main control area.",
-                    ].map((item) => (
-                      <div key={item} className="rounded-[1.1rem] border border-emerald-100 bg-slate-100/76 px-4 py-3 text-sm text-slate-600">
-                        {item}
-                      </div>
-                    ))}
+                  <div>
+                    <div className="text-sm font-bold text-slate-900">{t.name}</div>
+                    <div className="text-xs text-slate-400">{t.role}</div>
                   </div>
                 </div>
+              </motion.div>
+            ))}
+          </div>
 
-                <div className="rounded-[1.6rem] border border-emerald-100 bg-[linear-gradient(135deg,rgba(228,236,220,0.84),rgba(239,244,234,0.82))] p-5">
-                  <div className="flex items-center gap-2 text-sm font-medium text-slate-950">
-                    <Leaf className="h-4 w-4 text-lime-500" />
-                    Why it feels stronger
-                  </div>
-                  <p className="mt-4 text-sm leading-7 text-slate-600">
-                    The assistant behaves like a modern workspace instead of a single long chat block. State, hierarchy,
-                    and action density all feel more deliberate.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="panel rounded-[2rem] p-6 md:p-8">
-              <div className="window-header -mx-6 -mt-6 mb-6 md:-mx-8 md:-mt-8">
-                <span className="window-dot" />
-                <span className="window-dot" />
-                <span className="window-dot" />
-                <span className="ml-3 text-xs uppercase tracking-[0.22em] text-slate-400">system framing</span>
-              </div>
-
-              <div className="grid gap-5">
-                <div className="rounded-[1.6rem] border border-emerald-100 bg-slate-100/72 p-5">
-                  <div className="flex items-center gap-2 text-sm font-medium text-slate-950">
-                    <Waves className="h-4 w-4 text-emerald-500" />
-                    Layout language
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {[
-                      "Bright layered sections with glassmorphism that still stay readable.",
-                      "Animation used for reveals, emphasis, and scan feedback.",
-                      "Product previews that look like the real interface rather than filler shapes.",
-                      "Copy that stays grounded in farming work instead of generic AI claims.",
-                    ].map((item) => (
-                      <div key={item} className="rounded-[1.1rem] border border-emerald-100 bg-slate-100/76 px-4 py-3 text-sm text-slate-600">
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-[1.6rem] border border-emerald-100 bg-slate-100/76 p-5">
-                  <div className="status-line" />
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="data-chip">
-                      <Waves className="h-3.5 w-3.5 text-emerald-500" />
-                      bright glass surfaces
-                    </span>
-                    <span className="data-chip">
-                      <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-                      layered motion
-                    </span>
-                    <span className="data-chip">
-                      <Leaf className="h-3.5 w-3.5 text-lime-500" />
-                      agriculture tone
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* dots indicator */}
+          <div className="flex justify-center gap-2 mt-8">
+            {[0, 1, 2, 3].map((dot) => (
+              <div
+                key={dot}
+                className={`h-2 rounded-full transition-all ${dot === 0 ? "w-6 bg-green-500" : "w-2 bg-slate-200"}`}
+              />
+            ))}
           </div>
         </div>
       </section>
+
+      {/* ── COMMUNITY CTA ────────────────────────────────────── */}
+      <section className="relative py-16 sm:py-20 lg:py-24 overflow-hidden">
+        <Image
+          src="/community-bg.png"
+          alt="Farmers in field"
+          fill
+          className="object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-900/85 via-slate-900/60 to-slate-900/40" />
+
+        <div className="relative w-full px-4 sm:px-6 md:px-10 lg:px-16 xl:px-20 2xl:px-32">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="max-w-xl"
+          >
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight">
+              Join the <span className="text-green-400">AgriSense</span> Community
+            </h2>
+            <p className="mt-4 text-slate-300 text-sm sm:text-base leading-7 sm:leading-8">
+              Share, learn, and grow together with farmers worldwide.
+            </p>
+            <Link
+              href="/social"
+              className="mt-6 sm:mt-8 inline-flex items-center gap-2 rounded-full bg-green-500 hover:bg-green-400 px-6 sm:px-7 py-3 sm:py-3.5 text-xs sm:text-sm font-bold text-white shadow-lg shadow-green-500/30 transition-all duration-200 hover:-translate-y-0.5"
+            >
+              <Users className="h-4 w-4" />
+              Join Community <ArrowRight className="h-4 w-4" />
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
     </div>
   );
 }
