@@ -36,7 +36,7 @@ export default function RootLayout({ children }) {
       <body className={`${manrope.variable} ${sora.variable} app-shell font-sans antialiased`}>
         <AppProviders>
           <Header />
-          <main className="min-h-screen pt-20 md:pt-24">{children}</main>
+          <main className="min-h-screen">{children}</main>
           <Footer />
         </AppProviders>
         <Analytics />
